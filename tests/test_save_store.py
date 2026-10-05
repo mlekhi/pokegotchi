@@ -63,3 +63,36 @@ def test_missing_fields_start_a_new_selection(tmp_path):
     path.write_text(json.dumps({"line": "bulbasaur"}))
 
     assert load_game(path) is None
+
+
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {"level": 0},
+        {"level": 11},
+        {"level": True},
+        {"xp": -1},
+        {"xp": 1.5},
+        {"asleep": 1},
+        {"fainted": "false"},
+        {"last_updated": "2026-10-05T12:00:00"},
+    ],
+)
+def test_invalid_runtime_fields_start_a_new_selection(tmp_path, updates):
+    path = tmp_path / "save.json"
+    data = {
+        "line": "bulbasaur",
+        "level": 1,
+        "xp": 0,
+        "health": 80,
+        "hunger": 80,
+        "happiness": 80,
+        "energy": 80,
+        "asleep": False,
+        "fainted": False,
+        "last_updated": NOW.isoformat(),
+    }
+    data.update(updates)
+    path.write_text(json.dumps(data))
+
+    assert load_game(path) is None

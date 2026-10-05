@@ -23,7 +23,17 @@ def load_game(path: Path) -> GameState | None:
         data = json.loads(path.read_text())
         if not isinstance(data, dict) or data.get("line") not in STARTERS:
             return None
-        data["last_updated"] = datetime.fromisoformat(data["last_updated"])
+        if type(data.get("level")) is not int or not 1 <= data["level"] <= 10:
+            return None
+        if type(data.get("xp")) is not int or data["xp"] < 0:
+            return None
+        if type(data.get("asleep")) is not bool or type(data.get("fainted")) is not bool:
+            return None
+
+        last_updated = datetime.fromisoformat(data["last_updated"])
+        if last_updated.tzinfo is None or last_updated.utcoffset() is None:
+            return None
+        data["last_updated"] = last_updated
         return GameState(**data)
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
         return None
