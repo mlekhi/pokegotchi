@@ -163,15 +163,24 @@ def test_offline_decay_is_capped_at_twelve_hours():
     state = new_game("bulbasaur", NOW)
     game.advance_time(state, NOW + timedelta(hours=20))
     assert state.hunger == 0
-    assert state.last_updated == NOW + timedelta(hours=12)
+    assert state.last_updated == NOW + timedelta(hours=20)
 
 
-def test_partial_hour_carries_forward_without_changing_stats():
+def test_later_call_does_not_replay_capped_gap():
+    state = new_game("bulbasaur", NOW)
+    state.asleep = True
+    game.advance_time(state, NOW + timedelta(hours=20))
+    assert (state.hunger, state.last_updated) == (32, NOW + timedelta(hours=20))
+    game.advance_time(state, NOW + timedelta(hours=21))
+    assert (state.hunger, state.last_updated) == (28, NOW + timedelta(hours=21))
+
+
+def test_partial_hour_updates_timestamp_without_changing_stats():
     state = new_game("bulbasaur", NOW)
     game.advance_time(state, NOW + timedelta(minutes=30))
-    assert (state.hunger, state.last_updated) == (80, NOW)
+    assert (state.hunger, state.last_updated) == (80, NOW + timedelta(minutes=30))
     game.advance_time(state, NOW + timedelta(minutes=90))
-    assert (state.hunger, state.last_updated) == (72, NOW + timedelta(hours=1))
+    assert (state.hunger, state.last_updated) == (72, NOW + timedelta(minutes=90))
 
 
 def test_time_before_last_update_does_not_change_state():

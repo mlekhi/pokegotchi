@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 
 STARTERS = {"bulbasaur", "charmander", "squirtle"}
 ACTION_EFFECTS = {
@@ -79,9 +79,9 @@ def species_for(state: GameState) -> str:
 
 
 def advance_time(state: GameState, now: datetime) -> None:
-    hours = min(12, int((now - state.last_updated).total_seconds() // 3600))
-    if hours <= 0:
+    if now <= state.last_updated:
         return
+    hours = min(12, int((now - state.last_updated).total_seconds() // 3600))
 
     for _ in range(hours):
         if state.asleep:
@@ -94,4 +94,4 @@ def advance_time(state: GameState, now: datetime) -> None:
             state.health = max(0, state.health - 10)
         state.fainted = state.health == 0
 
-    state.last_updated += timedelta(hours=hours)
+    state.last_updated = now
