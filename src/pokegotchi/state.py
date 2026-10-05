@@ -17,6 +17,12 @@ class GameState:
     fainted: bool
     last_updated: datetime
 
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {"health", "hunger", "happiness", "energy"}:
+            if type(value) is not int or not 0 <= value <= 100:
+                raise ValueError(f"{name} must be an integer from 0 to 100")
+        super().__setattr__(name, value)
+
 
 def new_game(starter: str, now: datetime) -> GameState:
     if starter not in STARTERS:
