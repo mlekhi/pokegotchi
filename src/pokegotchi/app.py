@@ -20,7 +20,10 @@ BUTTONS = (
     pygame.Rect(410, 375, 180, 85),
     pygame.Rect(605, 375, 175, 85),
 )
-EXIT_BUTTON = pygame.Rect(724, 150, 36, 36)
+MENU_BUTTON = pygame.Rect(714, 28, 64, 64)
+BACK_BUTTON = pygame.Rect(24, 24, 92, 60)
+MENU_EXIT_BUTTON = pygame.Rect(510, 377, 250, 74)
+HABITAT = pygame.Rect(40, 112, 720, 248)
 NAVY = (24, 45, 78)
 CREAM = (245, 230, 184)
 GRASS = (105, 160, 103)
@@ -72,6 +75,8 @@ class PokegotchiApp:
             self._draw_selection(now)
         elif self.screen == "evolution":
             self._draw_evolution(now)
+        elif self.screen == "menu":
+            self._draw_menu()
         else:
             self._draw_home(now)
 
@@ -93,11 +98,17 @@ class PokegotchiApp:
                     save_game(self.save_path, self.state)
                     return
             return
+        if self.screen == "menu":
+            if BACK_BUTTON.collidepoint(position):
+                self.screen = "home"
+            elif MENU_EXIT_BUTTON.collidepoint(position):
+                self.exit_requested = True
+            return
         if self.screen != "home" or self.state is None:
             return
 
-        if EXIT_BUTTON.collidepoint(position):
-            self.exit_requested = True
+        if MENU_BUTTON.collidepoint(position):
+            self.screen = "menu"
             return
 
         for index, button in enumerate(BUTTONS):
@@ -162,13 +173,11 @@ class PokegotchiApp:
 
     def _draw_home(self, now: int) -> None:
         assert self.state is not None
-        self._draw_panel(pygame.Rect(18, 18, 764, 101))
+        self._draw_panel(pygame.Rect(18, 18, 764, 78))
         self._draw_stats()
-        self._draw_panel(pygame.Rect(40, 150, 340, 200))
-        self._draw_panel(pygame.Rect(404, 150, 356, 200))
-        self._draw_button(EXIT_BUTTON, SAND)
-        exit_label = self._font.render("X", False, NAVY)
-        self.surface.blit(exit_label, exit_label.get_rect(center=EXIT_BUTTON.center))
+        self._draw_habitat()
+        self._draw_button(MENU_BUTTON, SAND)
+        self._draw_menu_icon(MENU_BUTTON.center)
         reaction_age = now - self.reaction_started_ms
         animation = select_animation(self.state, self.reaction_action, reaction_age)
         species = species_for(self.state)
@@ -178,37 +187,25 @@ class PokegotchiApp:
             self._animation_started_ms = now
         animation_age = reaction_age if animation == "Walk" else now - self._animation_started_ms
         self._draw_sprite(
-            species, pygame.Rect(80, 165, 240, 175),
+            species, pygame.Rect(295, 145, 210, 202),
             animation=animation, elapsed_ms=animation_age,
         )
-        self._text(species.capitalize(), 420, 180, large=True)
-        self._text(f"Level {self.state.level}", 422, 235)
-        self._text(f"XP {self.state.xp}", 422, 270)
-        if self.state.fainted:
-            status = "Fainted"
-        elif self.state.asleep:
-            status = "Sleeping"
-        else:
-            needs = (
-                (self.state.health, "Needs healing"),
-                (self.state.hunger, "Needs food"),
-                (self.state.happiness, "Needs play"),
-                (self.state.energy, "Needs rest"),
-            )
-            lowest, need = min(needs, key=lambda item: item[0])
-            status = need if lowest < 50 else "Doing well"
-        self._text(f"Status: {status}", 422, 305)
 
         labels = ("Feed", "Play", "Heal", "Wake" if self.state.asleep else "Sleep")
         colors = (GRASS, SAND, (207, 111, 108), SKY)
-        for button, label, color in zip(BUTTONS, labels, colors):
+        actions = ("feed", "play", "heal", "wake" if self.state.asleep else "sleep")
+        for button, label, color, action in zip(BUTTONS, labels, colors, actions):
             self._draw_button(button, color)
-            text = self._font.render(label, False, NAVY)
-            self.surface.blit(text, text.get_rect(center=button.center))
+            self._draw_care_icon(action, button.centerx, 406, color)
+            text = self._small_font.render(label, False, NAVY)
+            self.surface.blit(text, text.get_rect(center=(button.centerx, 443)))
 
         age = now - self.reaction_started_ms
         if self.reaction_text and 0 <= age < 1200:
-            self._text(self.reaction_text, 420, 340 - age // 60, color=ACCENT)
+            text = self._font.render(self.reaction_text, False, NAVY)
+            bubble = text.get_rect(center=(400, 122 - age // 120)).inflate(22, 10)
+            pygame.draw.rect(self.surface, CREAM, bubble)
+            self.surface.blit(text, text.get_rect(center=bubble.center))
         elif age >= 1200:
             self.reaction_text = ""
 
@@ -219,15 +216,114 @@ class PokegotchiApp:
             ("Hunger", self.state.hunger, (220, 168, 79)),
             ("Happiness", self.state.happiness, (107, 177, 120)),
             ("Energy", self.state.energy, (112, 150, 211)),
+            ("Sleep", "ON" if self.state.asleep else "OFF", SKY),
         )
         for index, (label, value, color) in enumerate(stats):
-            x = 25 + index * 200
-            self._text(label, x, 25, small=True)
-            self._text(str(value), x + 153, 25, small=True)
-            pygame.draw.rect(self.surface, SHADOW, pygame.Rect(x, 61, 175, 22))
-            if value:
-                pygame.draw.rect(self.surface, color, pygame.Rect(x + 3, 64, round(169 * value / 100), 16))
-            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x, 61, 175, 22), width=2)
+            x = 34 + index * 136
+            self._draw_stat_icon(label, x, 40, color)
+            self._text(label, x + 40, 34, small=True)
+            self._text(str(value), x + 40, 59, small=True)
+
+    def _draw_stat_icon(self, label: str, x: int, y: int, color: tuple[int, int, int]) -> None:
+        pygame.draw.rect(self.surface, SHADOW, pygame.Rect(x + 2, y + 2, 28, 28))
+        pygame.draw.rect(self.surface, color, pygame.Rect(x, y, 28, 28))
+        pygame.draw.rect(self.surface, CREAM, pygame.Rect(x, y, 28, 28), width=2)
+        if label == "Health":
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + 11, y + 5, 6, 18))
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + 5, y + 11, 18, 6))
+        elif label == "Hunger":
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + 7, y + 6, 3, 15))
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + 16, y + 6, 3, 15))
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + 14, y + 19, 7, 3))
+        elif label == "Happiness":
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + 6, y + 8, 4, 4))
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + 18, y + 8, 4, 4))
+            pygame.draw.line(self.surface, CREAM, (x + 8, y + 18), (x + 14, y + 21), 3)
+            pygame.draw.line(self.surface, CREAM, (x + 14, y + 21), (x + 20, y + 18), 3)
+        elif label == "Energy":
+            pygame.draw.polygon(self.surface, CREAM, [(x + 15, y + 4), (x + 7, y + 16), (x + 13, y + 16), (x + 10, y + 24), (x + 22, y + 11), (x + 16, y + 11)])
+        else:
+            pygame.draw.circle(self.surface, CREAM, (x + 14, y + 14), 9)
+            pygame.draw.circle(self.surface, color, (x + 19, y + 9), 8)
+
+    def _draw_habitat(self) -> None:
+        pygame.draw.rect(self.surface, SHADOW, HABITAT.move(2, 2))
+        pygame.draw.rect(self.surface, SKY, HABITAT)
+        pygame.draw.rect(self.surface, GRASS, pygame.Rect(HABITAT.x, 210, HABITAT.width, 150))
+        pygame.draw.ellipse(self.surface, SAND, pygame.Rect(245, 270, 310, 75))
+        pygame.draw.ellipse(self.surface, (186, 147, 87), pygame.Rect(279, 328, 235, 13))
+        for x, y in ((105, 150), (585, 169), (640, 145)):
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x, y, 56, 8))
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + 11, y - 7, 34, 8))
+        for x, y in ((93, 266), (166, 318), (604, 286), (695, 325)):
+            pygame.draw.line(self.surface, (59, 125, 83), (x, y), (x - 4, y - 8), 3)
+            pygame.draw.line(self.surface, (59, 125, 83), (x, y), (x + 4, y - 9), 3)
+        for x, y in ((118, 324), (673, 263)):
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x, y, 5, 5))
+            pygame.draw.rect(self.surface, (216, 105, 105), pygame.Rect(x + 1, y + 1, 3, 3))
+        pygame.draw.rect(self.surface, CREAM, HABITAT, width=3)
+
+    def _draw_care_icon(self, action: str, x: int, y: int, color: tuple[int, int, int]) -> None:
+        pygame.draw.rect(self.surface, SHADOW, pygame.Rect(x - 20, y - 18, 40, 36))
+        if action == "feed":
+            pygame.draw.ellipse(self.surface, color, pygame.Rect(x - 13, y - 4, 26, 13))
+            pygame.draw.rect(self.surface, color, pygame.Rect(x - 10, y + 4, 20, 6))
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x - 3, y - 12, 6, 5))
+        elif action == "play":
+            pygame.draw.circle(self.surface, color, (x, y), 12)
+            pygame.draw.circle(self.surface, CREAM, (x, y), 12, 2)
+            pygame.draw.line(self.surface, CREAM, (x - 9, y - 8), (x + 9, y + 8), 2)
+        elif action == "heal":
+            pygame.draw.rect(self.surface, color, pygame.Rect(x - 4, y - 12, 8, 24))
+            pygame.draw.rect(self.surface, color, pygame.Rect(x - 12, y - 4, 24, 8))
+        elif action == "sleep":
+            pygame.draw.circle(self.surface, color, (x, y), 12)
+            pygame.draw.circle(self.surface, SHADOW, (x + 6, y - 5), 10)
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + 10, y - 12, 5, 2))
+        else:
+            pygame.draw.circle(self.surface, color, (x, y), 8)
+            for dx, dy in ((0, -14), (0, 14), (-14, 0), (14, 0), (-10, -10), (10, -10), (-10, 10), (10, 10)):
+                pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + dx - 2, y + dy - 2, 4, 4))
+
+    def _draw_menu_icon(self, center: tuple[int, int]) -> None:
+        x, y = center
+        for offset in (-10, 0, 10):
+            pygame.draw.rect(self.surface, NAVY, pygame.Rect(x - 14, y + offset - 2, 28, 4))
+
+    def _status(self) -> str:
+        assert self.state is not None
+        if self.state.fainted:
+            return "Fainted"
+        if self.state.asleep:
+            return "Sleeping"
+        needs = (
+            (self.state.health, "Needs healing"),
+            (self.state.hunger, "Needs food"),
+            (self.state.happiness, "Needs play"),
+            (self.state.energy, "Needs rest"),
+        )
+        lowest, need = min(needs, key=lambda item: item[0])
+        return need if lowest < 50 else "Doing well"
+
+    def _draw_menu(self) -> None:
+        assert self.state is not None
+        self._draw_panel(pygame.Rect(18, 18, 764, 444))
+        self._draw_button(BACK_BUTTON, SKY)
+        self._text("Back", 44, 40, color=NAVY)
+        self._text("Menu", 344, 38, large=True)
+        self._draw_panel(pygame.Rect(40, 112, 346, 242))
+        self._text("Pokemon details", 63, 132)
+        self._text(species_for(self.state).capitalize(), 63, 177, large=True)
+        self._text(f"Level {self.state.level}   XP {self.state.xp}", 63, 232)
+        self._text(f"Status: {self._status()}", 63, 288)
+        self._draw_panel(pygame.Rect(404, 112, 356, 242))
+        self._text("Save and status", 427, 132)
+        self._text("Save: local", 427, 180)
+        self._text(self.state.last_updated.strftime("Updated: %Y-%m-%d %H:%M UTC"), 427, 217, small=True)
+        self._text("Settings: coming soon", 427, 270, small=True)
+        self._text("Evolution: coming soon", 427, 298, small=True)
+        self._draw_button(MENU_EXIT_BUTTON, SAND)
+        self._text("Exit to desktop", 540, 401, color=NAVY)
 
     def _draw_evolution(self, now: int) -> None:
         elapsed = now - self.evolution_started_ms

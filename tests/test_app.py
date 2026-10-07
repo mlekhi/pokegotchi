@@ -8,7 +8,7 @@ import subprocess
 import pygame
 import pytest
 
-from pokegotchi.app import BUTTONS, EXIT_BUTTON, PokegotchiApp
+from pokegotchi.app import BUTTONS, MENU_BUTTON, MENU_EXIT_BUTTON, PokegotchiApp
 from pokegotchi.save_store import load_game, save_game
 from pokegotchi.state import new_game
 
@@ -85,6 +85,104 @@ def test_action_buttons_keep_their_existing_rectangles():
     assert BUTTONS[0].topleft == (20, 375)
     assert BUTTONS[2].size == (180, 85)
     assert BUTTONS[3].size == (175, 85)
+
+
+def test_home_draws_five_compact_stat_indicators(tmp_path, pygame_surface, monkeypatch):
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    app.handle_tap((140, 230))
+    text = []
+    draw_text = app._text
+
+    def record_text(value, *args, **kwargs):
+        text.append(value)
+        draw_text(value, *args, **kwargs)
+
+    monkeypatch.setattr(app, "_text", record_text)
+    app.draw()
+
+    assert {"Health", "Hunger", "Happiness", "Energy", "Sleep"} <= set(text)
+    assert pygame_surface.get_at((40, 52))[:3] != pygame_surface.get_at((180, 52))[:3]
+
+
+def test_home_draws_shared_outdoor_habitat(tmp_path, pygame_surface):
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    app.handle_tap((140, 230))
+
+    app.draw()
+
+    assert pygame_surface.get_at((60, 140))[:3] == (113, 181, 205)
+    assert pygame_surface.get_at((60, 300))[:3] == (105, 160, 103)
+    assert pygame_surface.get_at((510, 320))[:3] == (214, 181, 109)
+
+
+def test_home_care_buttons_show_icon_tiles(tmp_path, pygame_surface):
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    app.handle_tap((140, 230))
+
+    app.draw()
+
+    assert all(pygame_surface.get_at((button.centerx - 19, 390))[:3] == (12, 28, 52) for button in BUTTONS)
+
+
+def test_sleep_button_changes_to_wake_icon_after_sleeping(tmp_path, pygame_surface):
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    app.handle_tap((140, 230))
+    app.draw()
+    icon = pygame.Rect(BUTTONS[3].centerx - 20, 388, 40, 36)
+    sleep_icon = pygame.image.tobytes(pygame_surface.subsurface(icon), "RGB")
+
+    app.handle_tap(BUTTONS[3].center)
+    app.draw()
+
+    assert pygame.image.tobytes(pygame_surface.subsurface(icon), "RGB") != sleep_icon
+
+
+def test_menu_opens_separately_and_keeps_care_inactive(tmp_path, pygame_surface):
+    path = tmp_path / "save.json"
+    app = PokegotchiApp(pygame_surface, path)
+    app.handle_tap((140, 230))
+    hunger = app.state.hunger
+
+    app.handle_tap((745, 58))
+    assert app.screen == "menu"
+    app.handle_tap(BUTTONS[0].center)
+    assert app.state.hunger == hunger
+    app.draw()
+    assert pygame_surface.get_at((60, 140))[:3] != (113, 181, 205)
+
+
+def test_menu_has_details_save_status_and_exit(tmp_path, pygame_surface, monkeypatch):
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    app.handle_tap((140, 230))
+    app.handle_tap((745, 58))
+    text = []
+    draw_text = app._text
+
+    def record_text(value, *args, **kwargs):
+        text.append(value)
+        draw_text(value, *args, **kwargs)
+
+    monkeypatch.setattr(app, "_text", record_text)
+    app.draw()
+
+    assert "Bulbasaur" in text
+    assert any(value.startswith("Save:") for value in text)
+    assert any(value.startswith("Status:") for value in text)
+    assert "Exit to desktop" in text
+    app.handle_tap((630, 410))
+    assert app.exit_requested is True
+
+
+def test_menu_back_returns_to_home_without_changing_state(tmp_path, pygame_surface):
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    app.handle_tap((140, 230))
+    app.handle_tap((745, 58))
+    assert app.screen == "menu"
+
+    app.handle_tap((70, 50))
+
+    assert app.screen == "home"
+    assert app.state.hunger == 80
 
 
 def test_live_awake_decay_keeps_partial_hour(tmp_path, pygame_surface, game_clock):
@@ -178,6 +276,7 @@ def test_awake_status_names_strongest_need(tmp_path, pygame_surface, monkeypatch
 
     monkeypatch.setattr(app, "_text", record_text)
 
+    app.handle_tap(MENU_BUTTON.center)
     app.draw()
 
     assert f"Status: {status}" in text
@@ -198,6 +297,7 @@ def test_awake_status_chooses_lowest_stat(tmp_path, pygame_surface, monkeypatch)
 
     monkeypatch.setattr(app, "_text", record_text)
 
+    app.handle_tap(MENU_BUTTON.center)
     app.draw()
 
     assert "Status: Needs rest" in text
@@ -282,8 +382,8 @@ def test_available_sprite_is_loaded_without_blurring(tmp_path, pygame_surface, m
 
     app.draw()
 
-    assert pygame_surface.get_at((130, 200))[:3] == (255, 0, 0)
-    assert pygame_surface.get_at((270, 200))[:3] == (0, 0, 255)
+    assert pygame_surface.get_at((350, 245))[:3] == (255, 0, 0)
+    assert pygame_surface.get_at((450, 245))[:3] == (0, 0, 255)
 
 
 def test_home_draws_successive_pmd_frames(tmp_path, pygame_surface, monkeypatch):
@@ -306,10 +406,10 @@ def test_home_draws_successive_pmd_frames(tmp_path, pygame_surface, monkeypatch)
     app.handle_tap((140, 230))
 
     app.draw()
-    assert pygame_surface.get_at((200, 250))[:3] == (255, 0, 0)
+    assert pygame_surface.get_at((400, 245))[:3] == (255, 0, 0)
     monkeypatch.setattr(pygame.time, "get_ticks", lambda: 50)
     app.draw()
-    assert pygame_surface.get_at((200, 250))[:3] == (0, 0, 255)
+    assert pygame_surface.get_at((400, 245))[:3] == (0, 0, 255)
 
 
 def test_faint_animation_starts_when_health_reaches_zero(tmp_path, pygame_surface, monkeypatch):
@@ -343,10 +443,10 @@ def test_faint_animation_starts_when_health_reaches_zero(tmp_path, pygame_surfac
     app.state.health = 0
     app.state.fainted = True
     app.draw()
-    assert pygame_surface.get_at((200, 250))[:3] == (255, 0, 0)
+    assert pygame_surface.get_at((400, 245))[:3] == (255, 0, 0)
     ticks[0] = 1050
     app.draw()
-    assert pygame_surface.get_at((200, 250))[:3] == (0, 0, 255)
+    assert pygame_surface.get_at((400, 245))[:3] == (0, 0, 255)
 
 
 def test_main_opens_fullscreen_and_persists_touches(tmp_path, pygame_surface, monkeypatch):
@@ -385,7 +485,8 @@ def test_touch_exit_saves_and_stops_the_main_loop(tmp_path, pygame_surface, monk
     batches = iter(
         (
             [pygame.event.Event(pygame.MOUSEBUTTONUP, pos=(140, 230))],
-            [pygame.event.Event(pygame.MOUSEBUTTONUP, pos=EXIT_BUTTON.center)],
+            [pygame.event.Event(pygame.MOUSEBUTTONUP, pos=MENU_BUTTON.center)],
+            [pygame.event.Event(pygame.MOUSEBUTTONUP, pos=MENU_EXIT_BUTTON.center)],
             [pygame.event.Event(pygame.QUIT)],
         )
     )
@@ -403,13 +504,13 @@ def test_touch_exit_saves_and_stops_the_main_loop(tmp_path, pygame_surface, monk
     def events():
         nonlocal poll_count
         poll_count += 1
-        if poll_count == 2:
+        if poll_count == 3:
             instances[0].state.hunger = 31
         return next(batches)
 
     def record_flip():
         real_flip()
-        visible_exit_pixels.append(instances[0].surface.get_at((EXIT_BUTTON.x + 3, EXIT_BUTTON.y + 3))[:3])
+        visible_exit_pixels.append(instances[0].surface.get_at((MENU_EXIT_BUTTON.x + 3, MENU_EXIT_BUTTON.y + 3))[:3])
 
     monkeypatch.setattr(main_module, "PokegotchiApp", make_app)
     monkeypatch.setattr(pygame.event, "get", events)
@@ -417,11 +518,11 @@ def test_touch_exit_saves_and_stops_the_main_loop(tmp_path, pygame_surface, monk
 
     main_module.main()
 
-    assert poll_count == 2
+    assert poll_count == 3
     saved = load_game(tmp_path / ".local/share/pokegotchi/save.json")
     assert saved.line == "bulbasaur"
     assert saved.hunger == 31
-    assert visible_exit_pixels == [(214, 181, 109)]
+    assert visible_exit_pixels[-1] == (214, 181, 109)
 
 
 def test_main_advances_an_idle_game(tmp_path, pygame_surface, monkeypatch, game_clock):
