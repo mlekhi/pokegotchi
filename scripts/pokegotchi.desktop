@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=Pokegotchi
+Exec=env PYTHONPATH=PROJECT_DIR/src VENV_DIR/bin/python -m pokegotchi.main
+Terminal=false
