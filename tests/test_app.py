@@ -8,7 +8,7 @@ import subprocess
 import pygame
 import pytest
 
-from pokegotchi.app import PokegotchiApp
+from pokegotchi.app import BUTTONS, PokegotchiApp
 from pokegotchi.save_store import load_game, save_game
 from pokegotchi.state import new_game
 
@@ -69,6 +69,22 @@ def test_loaded_game_is_shown_on_home_screen(tmp_path, pygame_surface):
 
     assert app.screen == "home"
     app.draw()
+
+
+def test_home_uses_the_ds_panel_and_border_colours(tmp_path, pygame_surface):
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    app.handle_tap((140, 230))
+
+    app.draw()
+
+    assert pygame_surface.get_at((12, 12))[:3] == (24, 45, 78)
+    assert pygame_surface.get_at((18, 18))[:3] == (245, 230, 184)
+
+
+def test_action_buttons_keep_their_existing_rectangles():
+    assert BUTTONS[0].topleft == (20, 375)
+    assert BUTTONS[2].size == (180, 85)
+    assert BUTTONS[3].size == (175, 85)
 
 
 def test_live_awake_decay_keeps_partial_hour(tmp_path, pygame_surface, game_clock):
@@ -249,7 +265,7 @@ def test_missing_sprite_draws_named_placeholder(tmp_path, pygame_surface, monkey
 
     app.draw()
 
-    assert pygame_surface.get_at((140, 185))[:3] != pygame_surface.get_at((20, 185))[:3]
+    assert pygame_surface.get_at((80, 165))[:3] != pygame_surface.get_at((20, 185))[:3]
 
 
 def test_available_sprite_is_loaded_without_blurring(tmp_path, pygame_surface, monkeypatch):
