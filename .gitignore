@@ -3,4 +3,5 @@ docs/
 __pycache__/
 .pytest_cache/
 .venv/
+assets/sprites/
 *.pyc
