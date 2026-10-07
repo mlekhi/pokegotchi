@@ -19,6 +19,7 @@ def main() -> None:
     try:
         running = True
         while running:
+            app.update_time()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import os
 from pathlib import Path
 import shlex
@@ -11,6 +11,23 @@ import pytest
 from pokegotchi.app import PokegotchiApp
 from pokegotchi.save_store import load_game, save_game
 from pokegotchi.state import new_game
+
+NOW = datetime(2026, 10, 5, 12, tzinfo=timezone.utc)
+
+
+@pytest.fixture
+def game_clock(monkeypatch):
+    from pokegotchi import app as app_module
+
+    class FixedDateTime(datetime):
+        current = NOW
+
+        @classmethod
+        def now(cls, tz=None):
+            return cls.current
+
+    monkeypatch.setattr(app_module, "datetime", FixedDateTime)
+    return FixedDateTime
 
 
 def test_first_run_shows_starter_selection(tmp_path, pygame_surface):
@@ -52,6 +69,122 @@ def test_loaded_game_is_shown_on_home_screen(tmp_path, pygame_surface):
 
     assert app.screen == "home"
     app.draw()
+
+
+def test_live_awake_decay_keeps_partial_hour(tmp_path, pygame_surface, game_clock):
+    path = tmp_path / "save.json"
+    save_game(path, new_game("squirtle", NOW))
+    app = PokegotchiApp(pygame_surface, path)
+
+    game_clock.current = NOW + timedelta(minutes=30)
+    app.update_time()
+    assert app.state.hunger == 80
+    game_clock.current = NOW + timedelta(hours=1)
+    app.update_time()
+
+    assert (app.state.hunger, app.state.happiness, app.state.energy) == (72, 76, 74)
+    assert load_game(path).hunger == 72
+
+
+def test_live_sleep_restores_energy_after_partial_updates(tmp_path, pygame_surface, game_clock):
+    path = tmp_path / "save.json"
+    state = new_game("squirtle", NOW)
+    state.asleep = True
+    state.energy = 60
+    save_game(path, state)
+    app = PokegotchiApp(pygame_surface, path)
+
+    game_clock.current = NOW + timedelta(minutes=30)
+    app.update_time()
+    assert app.state.energy == 60
+    game_clock.current = NOW + timedelta(hours=1)
+    app.update_time()
+
+    assert (app.state.hunger, app.state.happiness, app.state.energy) == (76, 78, 70)
+    assert load_game(path).energy == 70
+
+
+def test_live_sleep_change_does_not_reassign_prior_awake_time(tmp_path, pygame_surface, game_clock):
+    path = tmp_path / "save.json"
+    save_game(path, new_game("squirtle", NOW))
+    app = PokegotchiApp(pygame_surface, path)
+
+    game_clock.current = NOW + timedelta(minutes=30)
+    app.handle_tap((690, 415))
+    assert app.state.asleep is True
+    app = PokegotchiApp(pygame_surface, path)
+    game_clock.current = NOW + timedelta(minutes=90)
+    app.update_time()
+    assert (app.state.hunger, app.state.energy) == (76, 90)
+
+    app.handle_tap((690, 415))
+    game_clock.current = NOW + timedelta(hours=2)
+    app.update_time()
+
+    assert (app.state.hunger, app.state.happiness, app.state.energy) == (68, 74, 84)
+    assert (load_game(path).hunger, load_game(path).energy) == (68, 84)
+
+
+def test_care_action_settles_elapsed_time_before_clamping(tmp_path, pygame_surface, game_clock):
+    path = tmp_path / "save.json"
+    state = new_game("squirtle", NOW)
+    state.hunger = 75
+    save_game(path, state)
+    app = PokegotchiApp(pygame_surface, path)
+
+    game_clock.current = NOW + timedelta(hours=1)
+    app.handle_tap((110, 415))
+
+    assert app.state.hunger == 97
+    assert load_game(path).hunger == 97
+
+
+@pytest.mark.parametrize(
+    ("stat", "status"),
+    [
+        ("health", "Needs healing"),
+        ("hunger", "Needs food"),
+        ("happiness", "Needs play"),
+        ("energy", "Needs rest"),
+    ],
+)
+def test_awake_status_names_strongest_need(tmp_path, pygame_surface, monkeypatch, stat, status):
+    path = tmp_path / "save.json"
+    save_game(path, new_game("squirtle", datetime.now(timezone.utc)))
+    app = PokegotchiApp(pygame_surface, path)
+    setattr(app.state, stat, 20)
+    text = []
+    draw_text = app._text
+
+    def record_text(value, *args, **kwargs):
+        text.append(value)
+        draw_text(value, *args, **kwargs)
+
+    monkeypatch.setattr(app, "_text", record_text)
+
+    app.draw()
+
+    assert f"Status: {status}" in text
+
+
+def test_awake_status_chooses_lowest_stat(tmp_path, pygame_surface, monkeypatch):
+    path = tmp_path / "save.json"
+    save_game(path, new_game("squirtle", datetime.now(timezone.utc)))
+    app = PokegotchiApp(pygame_surface, path)
+    app.state.hunger = 25
+    app.state.energy = 10
+    text = []
+    draw_text = app._text
+
+    def record_text(value, *args, **kwargs):
+        text.append(value)
+        draw_text(value, *args, **kwargs)
+
+    monkeypatch.setattr(app, "_text", record_text)
+
+    app.draw()
+
+    assert "Status: Needs rest" in text
 
 
 @pytest.mark.parametrize(
@@ -162,6 +295,27 @@ def test_main_opens_fullscreen_and_persists_touches(tmp_path, pygame_surface, mo
     saved = load_game(tmp_path / ".local/share/pokegotchi/save.json")
     assert saved.line == "bulbasaur"
     assert saved.hunger == 100
+
+
+def test_main_advances_an_idle_game(tmp_path, pygame_surface, monkeypatch, game_clock):
+    from pokegotchi import main as main_module
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    path = tmp_path / ".local/share/pokegotchi/save.json"
+    path.parent.mkdir(parents=True)
+    save_game(path, new_game("squirtle", NOW))
+    batches = iter(([], [pygame.event.Event(pygame.QUIT)]))
+
+    def events():
+        batch = next(batches)
+        game_clock.current = NOW + timedelta(hours=1)
+        return batch
+
+    monkeypatch.setattr(pygame.event, "get", events)
+
+    main_module.main()
+
+    assert load_game(path).hunger == 72
 
 
 def test_quit_saves_evolution_before_animation_finishes(tmp_path, pygame_surface, monkeypatch):

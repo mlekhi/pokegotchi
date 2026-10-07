@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 STARTERS = {"bulbasaur", "charmander", "squirtle"}
 ACTION_EFFECTS = {
@@ -12,6 +12,7 @@ EVOLUTIONS = {
     "charmander": {5: "charmeleon", 10: "charizard"},
     "squirtle": {5: "wartortle", 10: "blastoise"},
 }
+HOUR_MICROSECONDS = 3_600_000_000
 
 
 @dataclass
@@ -26,6 +27,8 @@ class GameState:
     asleep: bool
     fainted: bool
     last_updated: datetime
+    awake_elapsed_us: int = 0
+    sleep_elapsed_us: int = 0
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in {"health", "hunger", "happiness", "energy"}:
@@ -81,7 +84,11 @@ def species_for(state: GameState) -> str:
 def advance_time(state: GameState, now: datetime) -> None:
     if now <= state.last_updated:
         return
-    hours = min(12, int((now - state.last_updated).total_seconds() // 3600))
+    elapsed = min(now - state.last_updated, timedelta(hours=12))
+    elapsed_us = elapsed // timedelta(microseconds=1)
+    remainder_field = "sleep_elapsed_us" if state.asleep else "awake_elapsed_us"
+    hours, remainder = divmod(getattr(state, remainder_field) + elapsed_us, HOUR_MICROSECONDS)
+    setattr(state, remainder_field, remainder)
 
     for _ in range(hours):
         if state.asleep:

@@ -3,7 +3,7 @@ from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
-from .state import STARTERS, GameState
+from .state import HOUR_MICROSECONDS, STARTERS, GameState
 
 
 def _encode_datetime(value: object) -> str:
@@ -29,6 +29,10 @@ def load_game(path: Path) -> GameState | None:
             return None
         if type(data.get("asleep")) is not bool or type(data.get("fainted")) is not bool:
             return None
+        for field in ("awake_elapsed_us", "sleep_elapsed_us"):
+            value = data.get(field, 0)
+            if type(value) is not int or not 0 <= value < HOUR_MICROSECONDS:
+                return None
 
         last_updated = datetime.fromisoformat(data["last_updated"])
         if last_updated.tzinfo is None or last_updated.utcoffset() is None:

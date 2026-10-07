@@ -60,6 +60,15 @@ class PokegotchiApp:
         else:
             self._draw_home(now)
 
+    def update_time(self) -> None:
+        if self.state is None:
+            return
+        before = (self.state.health, self.state.hunger, self.state.happiness, self.state.energy, self.state.fainted)
+        advance_time(self.state, datetime.now(timezone.utc))
+        after = (self.state.health, self.state.hunger, self.state.happiness, self.state.energy, self.state.fainted)
+        if after != before:
+            save_game(self.save_path, self.state)
+
     def handle_tap(self, position: tuple[int, int]) -> None:
         if self.screen == "starter_selection":
             for card, starter in zip(STARTER_CARDS, STARTERS):
@@ -75,6 +84,7 @@ class PokegotchiApp:
         for index, button in enumerate(BUTTONS):
             if not button.collidepoint(position):
                 continue
+            self.update_time()
             action = ("feed", "play", "heal", "wake" if self.state.asleep else "sleep")[index]
             previous_species = species_for(self.state)
             if not apply_action(self.state, action):
@@ -122,7 +132,19 @@ class PokegotchiApp:
         self._text(species.capitalize(), 420, 180, large=True)
         self._text(f"Level {self.state.level}", 422, 235)
         self._text(f"XP {self.state.xp}", 422, 270)
-        status = "Fainted" if self.state.fainted else "Sleeping" if self.state.asleep else "Awake"
+        if self.state.fainted:
+            status = "Fainted"
+        elif self.state.asleep:
+            status = "Sleeping"
+        else:
+            needs = (
+                (self.state.health, "Needs healing"),
+                (self.state.hunger, "Needs food"),
+                (self.state.happiness, "Needs play"),
+                (self.state.energy, "Needs rest"),
+            )
+            lowest, need = min(needs, key=lambda item: item[0])
+            status = need if lowest < 50 else "Doing well"
         self._text(f"Status: {status}", 422, 305)
 
         labels = ("Feed", "Play", "Heal", "Wake" if self.state.asleep else "Sleep")
