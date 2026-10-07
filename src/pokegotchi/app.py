@@ -20,6 +20,7 @@ BUTTONS = (
     pygame.Rect(410, 375, 180, 85),
     pygame.Rect(605, 375, 175, 85),
 )
+EXIT_BUTTON = pygame.Rect(724, 150, 36, 36)
 NAVY = (24, 45, 78)
 CREAM = (245, 230, 184)
 GRASS = (105, 160, 103)
@@ -38,6 +39,7 @@ class PokegotchiApp:
         self.save_path = Path(save_path)
         self.state: GameState | None = load_game(self.save_path)
         self.screen = "home" if self.state is not None else "starter_selection"
+        self.exit_requested = False
         self.reaction_text = ""
         self.reaction_action: str | None = None
         self.reaction_started_ms = 0
@@ -92,6 +94,10 @@ class PokegotchiApp:
                     return
             return
         if self.screen != "home" or self.state is None:
+            return
+
+        if EXIT_BUTTON.collidepoint(position):
+            self.exit_requested = True
             return
 
         for index, button in enumerate(BUTTONS):
@@ -160,6 +166,9 @@ class PokegotchiApp:
         self._draw_stats()
         self._draw_panel(pygame.Rect(40, 150, 340, 200))
         self._draw_panel(pygame.Rect(404, 150, 356, 200))
+        self._draw_button(EXIT_BUTTON, SAND)
+        exit_label = self._font.render("X", False, NAVY)
+        self.surface.blit(exit_label, exit_label.get_rect(center=EXIT_BUTTON.center))
         reaction_age = now - self.reaction_started_ms
         animation = select_animation(self.state, self.reaction_action, reaction_age)
         species = species_for(self.state)

@@ -28,6 +28,9 @@ def main() -> None:
                     app.handle_tap(event.pos)
                     if app.state is not None:
                         save_game(save_path, app.state)
+                    if app.exit_requested:
+                        running = False
+                        break
 
             if running:
                 app.draw()

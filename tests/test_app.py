@@ -8,7 +8,7 @@ import subprocess
 import pygame
 import pytest
 
-from pokegotchi.app import BUTTONS, PokegotchiApp
+from pokegotchi.app import BUTTONS, EXIT_BUTTON, PokegotchiApp
 from pokegotchi.save_store import load_game, save_game
 from pokegotchi.state import new_game
 
@@ -376,6 +376,52 @@ def test_main_opens_fullscreen_and_persists_touches(tmp_path, pygame_surface, mo
     saved = load_game(tmp_path / ".local/share/pokegotchi/save.json")
     assert saved.line == "bulbasaur"
     assert saved.hunger == 100
+
+
+def test_touch_exit_saves_and_stops_the_main_loop(tmp_path, pygame_surface, monkeypatch):
+    from pokegotchi import main as main_module
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    batches = iter(
+        (
+            [pygame.event.Event(pygame.MOUSEBUTTONUP, pos=(140, 230))],
+            [pygame.event.Event(pygame.MOUSEBUTTONUP, pos=EXIT_BUTTON.center)],
+            [pygame.event.Event(pygame.QUIT)],
+        )
+    )
+    poll_count = 0
+    visible_exit_pixels = []
+    real_flip = pygame.display.flip
+    real_app = main_module.PokegotchiApp
+    instances = []
+
+    def make_app(surface, save_path):
+        app = real_app(surface, save_path)
+        instances.append(app)
+        return app
+
+    def events():
+        nonlocal poll_count
+        poll_count += 1
+        if poll_count == 2:
+            instances[0].state.hunger = 31
+        return next(batches)
+
+    def record_flip():
+        real_flip()
+        visible_exit_pixels.append(instances[0].surface.get_at((EXIT_BUTTON.x + 3, EXIT_BUTTON.y + 3))[:3])
+
+    monkeypatch.setattr(main_module, "PokegotchiApp", make_app)
+    monkeypatch.setattr(pygame.event, "get", events)
+    monkeypatch.setattr(pygame.display, "flip", record_flip)
+
+    main_module.main()
+
+    assert poll_count == 2
+    saved = load_game(tmp_path / ".local/share/pokegotchi/save.json")
+    assert saved.line == "bulbasaur"
+    assert saved.hunger == 31
+    assert visible_exit_pixels == [(214, 181, 109)]
 
 
 def test_main_advances_an_idle_game(tmp_path, pygame_surface, monkeypatch, game_clock):
