@@ -12,7 +12,7 @@ python3 -m venv "$data_dir/venv"
 cp "$project_dir/scripts/pokegotchi.desktop" "$desktop_file"
 awk -v project="$project_dir" -v venv="$data_dir/venv" '
     /^Exec=/ {
-        print "Exec=env PYTHONPATH=" project "/src " venv "/bin/python -m pokegotchi.main"
+        print "Exec=env \"PYTHONPATH=" project "/src\" \"" venv "/bin/python\" -m pokegotchi.main"
         next
     }
     { print }

@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 import os
 from pathlib import Path
+import shlex
+import shutil
 import subprocess
 
 import pygame
@@ -211,8 +213,16 @@ def test_quit_persists_unsaved_in_memory_state(tmp_path, pygame_surface, monkeyp
     assert load_game(path).hunger == 17
 
 
-def test_pi_installer_creates_venv_and_autostart_entry(tmp_path):
+@pytest.mark.parametrize("spaced_paths", [False, True])
+def test_pi_installer_creates_venv_and_autostart_entry(tmp_path, spaced_paths):
     project_dir = Path(__file__).resolve().parents[1]
+    home_dir = tmp_path
+    if spaced_paths:
+        project_with_spaces = tmp_path / "project with spaces"
+        shutil.copytree(project_dir / "scripts", project_with_spaces / "scripts")
+        shutil.copy2(project_dir / "requirements.txt", project_with_spaces / "requirements.txt")
+        project_dir = project_with_spaces
+        home_dir = tmp_path / "home with spaces"
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     fake_python = fake_bin / "python3"
@@ -229,16 +239,23 @@ def test_pi_installer_creates_venv_and_autostart_entry(tmp_path):
     fake_python.chmod(0o755)
     log = tmp_path / "pip-args"
     env = {
-        "HOME": str(tmp_path),
+        "HOME": str(home_dir),
         "PATH": f"{fake_bin}:{os.environ['PATH']}",
         "POKEGOTCHI_TEST_LOG": str(log),
     }
 
     subprocess.run(["bash", str(project_dir / "scripts/install-pi.sh")], env=env, check=True)
 
-    venv_python = tmp_path / ".local/share/pokegotchi/venv/bin/python"
-    entry = (tmp_path / ".config/autostart/pokegotchi.desktop").read_text()
+    venv_python = home_dir / ".local/share/pokegotchi/venv/bin/python"
+    entry = (home_dir / ".config/autostart/pokegotchi.desktop").read_text()
     assert venv_python.is_file()
     assert log.read_text().splitlines() == ["-m", "pip", "install", "-r", str(project_dir / "requirements.txt")]
     assert "Type=Application\n" in entry
-    assert f"Exec=env PYTHONPATH={project_dir}/src {venv_python} -m pokegotchi.main\n" in entry
+    exec_line = next(line.removeprefix("Exec=") for line in entry.splitlines() if line.startswith("Exec="))
+    assert shlex.split(exec_line) == [
+        "env",
+        f"PYTHONPATH={project_dir}/src",
+        str(venv_python),
+        "-m",
+        "pokegotchi.main",
+    ]
