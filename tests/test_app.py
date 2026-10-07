@@ -243,6 +243,7 @@ def test_missing_sprite_draws_named_placeholder(tmp_path, pygame_surface, monkey
     from pokegotchi import app as app_module
 
     monkeypatch.setattr(app_module, "SPRITE_DIR", tmp_path / "no-sprites")
+    monkeypatch.setattr(app_module, "PMD_DIR", tmp_path / "no-pmd")
     app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
     app.handle_tap((140, 230))
 
@@ -255,6 +256,7 @@ def test_available_sprite_is_loaded_without_blurring(tmp_path, pygame_surface, m
     from pokegotchi import app as app_module
 
     monkeypatch.setattr(app_module, "SPRITE_DIR", tmp_path)
+    monkeypatch.setattr(app_module, "PMD_DIR", tmp_path / "no-pmd")
     sprite = pygame.Surface((2, 2), pygame.SRCALPHA)
     sprite.fill((255, 0, 0), pygame.Rect(0, 0, 1, 2))
     sprite.fill((0, 0, 255), pygame.Rect(1, 0, 1, 2))
@@ -266,6 +268,69 @@ def test_available_sprite_is_loaded_without_blurring(tmp_path, pygame_surface, m
 
     assert pygame_surface.get_at((130, 200))[:3] == (255, 0, 0)
     assert pygame_surface.get_at((270, 200))[:3] == (0, 0, 255)
+
+
+def test_home_draws_successive_pmd_frames(tmp_path, pygame_surface, monkeypatch):
+    from pokegotchi import app as app_module
+
+    pack = tmp_path / "pmd" / "bulbasaur"
+    pack.mkdir(parents=True)
+    (pack / "AnimData.xml").write_text(
+        "<AnimData><Anims><Anim><Name>Idle</Name><FrameWidth>2</FrameWidth>"
+        "<FrameHeight>2</FrameHeight><Durations><Duration>3</Duration>"
+        "<Duration>3</Duration></Durations></Anim></Anims></AnimData>"
+    )
+    sheet = pygame.Surface((4, 2), pygame.SRCALPHA)
+    sheet.fill((255, 0, 0), pygame.Rect(0, 0, 2, 2))
+    sheet.fill((0, 0, 255), pygame.Rect(2, 0, 2, 2))
+    pygame.image.save(sheet, str(pack / "Idle-Anim.png"))
+    monkeypatch.setattr(app_module, "PMD_DIR", tmp_path / "pmd")
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: 0)
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    app.handle_tap((140, 230))
+
+    app.draw()
+    assert pygame_surface.get_at((200, 250))[:3] == (255, 0, 0)
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: 50)
+    app.draw()
+    assert pygame_surface.get_at((200, 250))[:3] == (0, 0, 255)
+
+
+def test_faint_animation_starts_when_health_reaches_zero(tmp_path, pygame_surface, monkeypatch):
+    from pokegotchi import app as app_module
+
+    pack = tmp_path / "pmd" / "bulbasaur"
+    pack.mkdir(parents=True)
+    (pack / "AnimData.xml").write_text(
+        "<AnimData><Anims>"
+        "<Anim><Name>Idle</Name><FrameWidth>2</FrameWidth><FrameHeight>2</FrameHeight>"
+        "<Durations><Duration>3</Duration></Durations></Anim>"
+        "<Anim><Name>Faint</Name><FrameWidth>2</FrameWidth><FrameHeight>2</FrameHeight>"
+        "<Durations><Duration>3</Duration><Duration>3</Duration></Durations></Anim>"
+        "</Anims></AnimData>"
+    )
+    idle = pygame.Surface((2, 2), pygame.SRCALPHA)
+    idle.fill((0, 255, 0))
+    pygame.image.save(idle, str(pack / "Idle-Anim.png"))
+    faint = pygame.Surface((4, 2), pygame.SRCALPHA)
+    faint.fill((255, 0, 0), pygame.Rect(0, 0, 2, 2))
+    faint.fill((0, 0, 255), pygame.Rect(2, 0, 2, 2))
+    pygame.image.save(faint, str(pack / "Faint-Anim.png"))
+    monkeypatch.setattr(app_module, "PMD_DIR", tmp_path / "pmd")
+    ticks = [0]
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: ticks[0])
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    app.handle_tap((140, 230))
+    app.draw()
+
+    ticks[0] = 1000
+    app.state.health = 0
+    app.state.fainted = True
+    app.draw()
+    assert pygame_surface.get_at((200, 250))[:3] == (255, 0, 0)
+    ticks[0] = 1050
+    app.draw()
+    assert pygame_surface.get_at((200, 250))[:3] == (0, 0, 255)
 
 
 def test_main_opens_fullscreen_and_persists_touches(tmp_path, pygame_surface, monkeypatch):

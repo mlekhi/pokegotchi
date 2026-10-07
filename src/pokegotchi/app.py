@@ -5,11 +5,13 @@ from pathlib import Path
 
 import pygame
 
+from .animation import PmdAnimationPlayer, select_animation
 from .save_store import load_game, save_game
 from .state import GameState, advance_time, apply_action, new_game, species_for
 
 
 SPRITE_DIR = Path(__file__).resolve().parents[2] / "assets" / "sprites"
+PMD_DIR = Path(__file__).resolve().parents[2] / "assets" / "pmd"
 STARTERS = ("bulbasaur", "charmander", "squirtle")
 STARTER_CARDS = tuple(pygame.Rect(x, 155, 220, 195) for x in (30, 290, 550))
 BUTTONS = (
@@ -31,11 +33,15 @@ class PokegotchiApp:
         self.state: GameState | None = load_game(self.save_path)
         self.screen = "home" if self.state is not None else "starter_selection"
         self.reaction_text = ""
+        self.reaction_action: str | None = None
         self.reaction_started_ms = 0
         self.evolution_started_ms = 0
         self.old_species = ""
         self.new_species = ""
         self._sprites: dict[str, pygame.Surface] = {}
+        self._animations = PmdAnimationPlayer(PMD_DIR)
+        self._animation_key: tuple[str, str] | None = None
+        self._animation_started_ms = 0
         self._font = pygame.font.Font(None, 29)
         self._small_font = pygame.font.Font(None, 24)
         self._large_font = pygame.font.Font(None, 43)
@@ -54,7 +60,7 @@ class PokegotchiApp:
 
         self.surface.fill(BACKGROUND)
         if self.screen == "starter_selection":
-            self._draw_selection()
+            self._draw_selection(now)
         elif self.screen == "evolution":
             self._draw_evolution(now)
         else:
@@ -98,6 +104,7 @@ class PokegotchiApp:
                 "wake": "Good morning!",
             }[action]
             self.reaction_started_ms = now
+            self.reaction_action = action
             current_species = species_for(self.state)
             if current_species != previous_species:
                 self.old_species = previous_species
@@ -112,14 +119,14 @@ class PokegotchiApp:
         font = self._large_font if large else self._small_font if small else self._font
         self.surface.blit(font.render(value, True, color), (x, y))
 
-    def _draw_selection(self) -> None:
+    def _draw_selection(self, now: int) -> None:
         self._text("Choose your starter", 252, 62, large=True)
         self._text("Tap a card to begin", 313, 112, small=True)
         colors = ((137, 184, 136), (235, 160, 109), (121, 176, 213))
         for card, starter, color in zip(STARTER_CARDS, STARTERS, colors):
             pygame.draw.rect(self.surface, PANEL, card, border_radius=18)
             pygame.draw.rect(self.surface, color, card, width=4, border_radius=18)
-            self._draw_sprite(starter, pygame.Rect(card.x + 35, card.y + 15, 150, 135))
+            self._draw_sprite(starter, pygame.Rect(card.x + 35, card.y + 15, 150, 135), elapsed_ms=now)
             label = self._font.render(starter.capitalize(), True, INK)
             self.surface.blit(label, label.get_rect(center=(card.centerx, card.bottom - 28)))
 
@@ -127,8 +134,18 @@ class PokegotchiApp:
         assert self.state is not None
         self._draw_stats()
         pygame.draw.rect(self.surface, PANEL, pygame.Rect(40, 150, 340, 200), border_radius=18)
-        self._draw_sprite(species_for(self.state), pygame.Rect(80, 165, 240, 175))
+        reaction_age = now - self.reaction_started_ms
+        animation = select_animation(self.state, self.reaction_action, reaction_age)
         species = species_for(self.state)
+        animation_key = species, animation
+        if animation_key != self._animation_key:
+            self._animation_key = animation_key
+            self._animation_started_ms = now
+        animation_age = reaction_age if animation == "Walk" else now - self._animation_started_ms
+        self._draw_sprite(
+            species, pygame.Rect(80, 165, 240, 175),
+            animation=animation, elapsed_ms=animation_age,
+        )
         self._text(species.capitalize(), 420, 180, large=True)
         self._text(f"Level {self.state.level}", 422, 235)
         self._text(f"XP {self.state.xp}", 422, 270)
@@ -180,24 +197,32 @@ class PokegotchiApp:
         elapsed = now - self.evolution_started_ms
         shown_species = self.old_species if elapsed // 200 % 2 == 0 else self.new_species
         self._text("Evolution!", 317, 65, large=True)
-        self._draw_sprite(shown_species, pygame.Rect(260, 130, 280, 230))
+        self._draw_sprite(shown_species, pygame.Rect(260, 130, 280, 230), elapsed_ms=now)
         self._text(f"{self.old_species.capitalize()} is evolving into {self.new_species.capitalize()}!", 160, 402)
 
-    def _draw_sprite(self, species: str, area: pygame.Rect) -> None:
-        sprite = self._sprites.get(species)
+    def _draw_sprite(self, species: str, area: pygame.Rect, *, animation: str = "Idle", elapsed_ms: int = 0) -> None:
+        sprite = self._animations.frame(species, animation, elapsed_ms)
         if sprite is None:
-            try:
-                sprite = pygame.image.load(str(SPRITE_DIR / f"{species}.png")).convert_alpha()
-            except (FileNotFoundError, pygame.error):
-                self._draw_placeholder(species, area)
-                return
-            self._sprites[species] = sprite
+            sprite = self._static_sprite(species)
+        if sprite is None:
+            self._draw_placeholder(species, area)
+            return
 
         width, height = sprite.get_size()
         factor = min(area.width / width, area.height / height)
         size = (max(1, round(width * factor)), max(1, round(height * factor)))
         scaled = pygame.transform.scale(sprite, size)
         self.surface.blit(scaled, scaled.get_rect(center=area.center))
+
+    def _static_sprite(self, species: str) -> pygame.Surface | None:
+        sprite = self._sprites.get(species)
+        if sprite is None:
+            try:
+                sprite = pygame.image.load(str(SPRITE_DIR / f"{species}.png")).convert_alpha()
+            except (FileNotFoundError, pygame.error):
+                return None
+            self._sprites[species] = sprite
+        return sprite
 
     def _draw_placeholder(self, species: str, area: pygame.Rect) -> None:
         pygame.draw.rect(self.surface, (222, 232, 222), area, border_radius=12)
