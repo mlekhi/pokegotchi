@@ -412,6 +412,41 @@ def test_home_draws_successive_pmd_frames(tmp_path, pygame_surface, monkeypatch)
     assert pygame_surface.get_at((400, 245))[:3] == (0, 0, 255)
 
 
+def test_pmd_animations_for_species_use_same_scale_in_habitat(tmp_path, pygame_surface, monkeypatch):
+    from pokegotchi import app as app_module
+
+    pack = tmp_path / "pmd" / "bulbasaur"
+    pack.mkdir(parents=True)
+    (pack / "AnimData.xml").write_text(
+        "<AnimData><Anims>"
+        "<Anim><Name>Idle</Name><FrameWidth>2</FrameWidth><FrameHeight>2</FrameHeight>"
+        "<Durations><Duration>3</Duration></Durations></Anim>"
+        "<Anim><Name>Hurt</Name><FrameWidth>2</FrameWidth><FrameHeight>4</FrameHeight>"
+        "<Durations><Duration>3</Duration></Durations></Anim>"
+        "</Anims></AnimData>"
+    )
+    for name, size in (("Idle", (2, 2)), ("Hurt", (2, 4))):
+        frame = pygame.Surface(size, pygame.SRCALPHA)
+        frame.fill((255, 0, 0))
+        pygame.image.save(frame, str(pack / f"{name}-Anim.png"))
+    monkeypatch.setattr(app_module, "PMD_DIR", tmp_path / "pmd")
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    scaled_sizes = []
+    original_scale = pygame.transform.scale
+
+    def record_scale(surface, size):
+        scaled_sizes.append((surface.get_width(), surface.get_height(), *size))
+        return original_scale(surface, size)
+
+    monkeypatch.setattr(pygame.transform, "scale", record_scale)
+    area = pygame.Rect(100, 100, 100, 100)
+    app._draw_sprite("bulbasaur", area, animation="Idle")
+    app._draw_sprite("bulbasaur", area, animation="Hurt")
+
+    factors = [scaled[2] / scaled[0] for scaled in scaled_sizes]
+    assert factors[0] == factors[1]
+
+
 def test_faint_animation_starts_when_health_reaches_zero(tmp_path, pygame_surface, monkeypatch):
     from pokegotchi import app as app_module
 

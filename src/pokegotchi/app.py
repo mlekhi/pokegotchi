@@ -342,7 +342,9 @@ class PokegotchiApp:
             return
 
         width, height = sprite.get_size()
-        factor = min(area.width / width, area.height / height)
+        canvas_size = self._animations.max_frame_size(species)
+        scale_width, scale_height = canvas_size or (width, height)
+        factor = min(area.width / scale_width, area.height / scale_height)
         size = (max(1, round(width * factor)), max(1, round(height * factor)))
         scaled = pygame.transform.scale(sprite, size)
         self.surface.blit(scaled, scaled.get_rect(center=area.center))

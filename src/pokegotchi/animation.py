@@ -51,6 +51,25 @@ class PmdAnimationPlayer:
                 return animation.frame(elapsed_ms, loop=name != "Faint")
         return None
 
+    def max_frame_size(self, species: str) -> tuple[int, int] | None:
+        if species not in self._metadata:
+            try:
+                root = ElementTree.parse(self.root / species / "AnimData.xml").getroot()
+                self._metadata[species] = {
+                    anim.findtext("Name"): anim for anim in root.findall("Anims/Anim")
+                }
+            except (OSError, ElementTree.ParseError):
+                return None
+        sizes = []
+        for entry in self._metadata[species].values():
+            source = entry.findtext("CopyOf") or entry.findtext("Name")
+            source_entry = self._metadata[species].get(source, entry)
+            try:
+                sizes.append((int(source_entry.findtext("FrameWidth")), int(source_entry.findtext("FrameHeight"))))
+            except (TypeError, ValueError):
+                continue
+        return (max(width for width, _ in sizes), max(height for _, height in sizes)) if sizes else None
+
     def _load(self, species: str, name: str) -> _Animation | None:
         key = species, name
         if key in self._animations:
