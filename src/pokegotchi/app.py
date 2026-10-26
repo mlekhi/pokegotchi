@@ -14,16 +14,11 @@ SPRITE_DIR = Path(__file__).resolve().parents[2] / "assets" / "sprites"
 PMD_DIR = Path(__file__).resolve().parents[2] / "assets" / "pmd"
 STARTERS = ("bulbasaur", "charmander", "squirtle")
 STARTER_CARDS = tuple(pygame.Rect(x, 155, 220, 195) for x in (30, 290, 550))
-BUTTONS = (
-    pygame.Rect(20, 375, 180, 85),
-    pygame.Rect(215, 375, 180, 85),
-    pygame.Rect(410, 375, 180, 85),
-    pygame.Rect(605, 375, 175, 85),
-)
-MENU_BUTTON = pygame.Rect(714, 28, 64, 64)
-BACK_BUTTON = pygame.Rect(24, 24, 92, 60)
-MENU_EXIT_BUTTON = pygame.Rect(510, 377, 250, 74)
-HABITAT = pygame.Rect(40, 112, 720, 248)
+BUTTONS = tuple(pygame.Rect(20 + index * 194, 375, 178, 85) for index in range(4))
+MENU_BUTTON = pygame.Rect(704, 28, 60, 60)
+BACK_BUTTON = pygame.Rect(40, 32, 86, 52)
+MENU_EXIT_BUTTON = pygame.Rect(40, 372, 720, 72)
+HABITAT = pygame.Rect(20, 112, 760, 248)
 NAVY = (24, 45, 78)
 CREAM = (245, 230, 184)
 GRASS = (105, 160, 103)
@@ -31,6 +26,8 @@ SAND = (214, 181, 109)
 SKY = (113, 181, 205)
 SHADOW = (12, 28, 52)
 TEXTURE = (34, 59, 88)
+MUTED = (144, 171, 196)
+SPRITE_SCALE = 1.25
 INK = CREAM
 BACKGROUND = NAVY
 ACCENT = GRASS
@@ -173,7 +170,7 @@ class PokegotchiApp:
 
     def _draw_home(self, now: int) -> None:
         assert self.state is not None
-        self._draw_panel(pygame.Rect(18, 18, 764, 78))
+        self._draw_panel(pygame.Rect(20, 18, 760, 78))
         self._draw_stats()
         self._draw_habitat()
         self._draw_button(MENU_BUTTON, SAND)
@@ -218,11 +215,14 @@ class PokegotchiApp:
             ("Energy", self.state.energy, (112, 150, 211)),
             ("Sleep", "ON" if self.state.asleep else "OFF", SKY),
         )
-        for index, (label, value, color) in enumerate(stats):
-            x = 34 + index * 136
+        self._text(species_for(self.state).capitalize(), 34, 44)
+        pygame.draw.line(self.surface, TEXTURE, (166, 32), (166, 82), 2)
+        x = 178
+        for label, value, color in stats:
             self._draw_stat_icon(label, x, 40, color)
             self._text(label, x + 40, 34, small=True)
             self._text(str(value), x + 40, 59, small=True)
+            x += 46 + self._small_font.size(label)[0]
 
     def _draw_stat_icon(self, label: str, x: int, y: int, color: tuple[int, int, int]) -> None:
         pygame.draw.rect(self.surface, SHADOW, pygame.Rect(x + 2, y + 2, 28, 28))
@@ -307,23 +307,54 @@ class PokegotchiApp:
 
     def _draw_menu(self) -> None:
         assert self.state is not None
-        self._draw_panel(pygame.Rect(18, 18, 764, 444))
+        self._draw_panel(pygame.Rect(20, 18, 760, 444))
         self._draw_button(BACK_BUTTON, SKY)
-        self._text("Back", 44, 40, color=NAVY)
-        self._text("Menu", 344, 38, large=True)
-        self._draw_panel(pygame.Rect(40, 112, 346, 242))
-        self._text("Pokemon details", 63, 132)
-        self._text(species_for(self.state).capitalize(), 63, 177, large=True)
-        self._text(f"Level {self.state.level}   XP {self.state.xp}", 63, 232)
-        self._text(f"Status: {self._status()}", 63, 288)
-        self._draw_panel(pygame.Rect(404, 112, 356, 242))
-        self._text("Save and status", 427, 132)
-        self._text("Save: local", 427, 180)
-        self._text(self.state.last_updated.strftime("Updated: %Y-%m-%d %H:%M UTC"), 427, 217, small=True)
-        self._text("Settings: coming soon", 427, 270, small=True)
-        self._text("Evolution: coming soon", 427, 298, small=True)
+        back_w, back_h = self._small_font.size("Back")
+        self._text(
+            "Back", BACK_BUTTON.centerx - back_w // 2, BACK_BUTTON.centery - back_h // 2,
+            small=True, color=NAVY,
+        )
+        title = self._large_font.render("Menu", False, INK)
+        self.surface.blit(title, title.get_rect(center=(400, 56)))
+
+        left = pygame.Rect(40, 120, 350, 200)
+        right = pygame.Rect(410, 120, 350, 200)
+        for card in (left, right):
+            self._draw_panel(card)
+            pygame.draw.rect(self.surface, SAND, pygame.Rect(card.x + 6, card.y + 6, card.width - 12, 4))
+
+        self._draw_card_title("Pokemon", left)
+        self._draw_rows(left, (
+            ("Level", str(self.state.level)),
+            ("XP", str(self.state.xp)),
+            ("Status", self._status()),
+        ), left.y + 82)
+
+        self._draw_card_title("Save", right)
+        self._draw_rows(right, (
+            ("Storage", "Local"),
+            ("Updated", self.state.last_updated.strftime("%Y-%m-%d %H:%M UTC")),
+        ), right.y + 82)
+
         self._draw_button(MENU_EXIT_BUTTON, SAND)
-        self._text("Exit to desktop", 540, 401, color=NAVY)
+        exit_w, exit_h = self._small_font.size("Exit")
+        self._text(
+            "Exit", MENU_EXIT_BUTTON.centerx - exit_w // 2, MENU_EXIT_BUTTON.centery - exit_h // 2,
+            small=True, color=NAVY,
+        )
+
+    def _draw_card_title(self, title: str, card: pygame.Rect) -> None:
+        self._text(title, card.x + 24, card.y + 22, small=True, color=SAND)
+        pygame.draw.line(
+            self.surface, TEXTURE,
+            (card.x + 24, card.y + 50), (card.right - 24, card.y + 50), 2,
+        )
+
+    def _draw_rows(self, card: pygame.Rect, rows: tuple[tuple[str, str], ...], start_y: int) -> None:
+        for index, (label, value) in enumerate(rows):
+            y = start_y + index * 34
+            self._text(label, card.x + 24, y, small=True, color=MUTED)
+            self._text(value, card.x + 130, y, small=True)
 
     def _draw_evolution(self, now: int) -> None:
         elapsed = now - self.evolution_started_ms
@@ -334,9 +365,8 @@ class PokegotchiApp:
         self._text(f"{self.old_species.capitalize()} is evolving into {self.new_species.capitalize()}!", 160, 402)
 
     def _draw_sprite(self, species: str, area: pygame.Rect, *, animation: str = "Idle", elapsed_ms: int = 0) -> None:
-        sprite = self._animations.frame(species, animation, elapsed_ms)
-        if sprite is None:
-            sprite = self._static_sprite(species)
+        animated = self._animations.frame(species, animation, elapsed_ms)
+        sprite = animated or self._static_sprite(species)
         if sprite is None:
             self._draw_placeholder(species, area)
             return
@@ -345,9 +375,19 @@ class PokegotchiApp:
         canvas_size = self._animations.max_frame_size(species)
         scale_width, scale_height = canvas_size or (width, height)
         factor = min(area.width / scale_width, area.height / scale_height)
+        if animated is not None:
+            reference = self._animations.content_height(species, "Idle")
+            content = self._animations.content_height(species, animation)
+            if reference and content:
+                factor *= reference / content * SPRITE_SCALE
         size = (max(1, round(width * factor)), max(1, round(height * factor)))
         scaled = pygame.transform.scale(sprite, size)
-        self.surface.blit(scaled, scaled.get_rect(center=area.center))
+        if animated is None:
+            self.surface.blit(scaled, scaled.get_rect(center=area.center))
+            return
+        content_bottom = round(sprite.get_bounding_rect().bottom * factor)
+        baseline = area.centery + round(area.height * 0.07)
+        self.surface.blit(scaled, (area.centerx - size[0] // 2, baseline - content_bottom))
 
     def _static_sprite(self, species: str) -> pygame.Surface | None:
         sprite = self._sprites.get(species)

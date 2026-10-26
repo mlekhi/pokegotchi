@@ -78,13 +78,14 @@ def test_home_uses_the_ds_panel_and_border_colours(tmp_path, pygame_surface):
     app.draw()
 
     assert pygame_surface.get_at((12, 12))[:3] == (24, 45, 78)
-    assert pygame_surface.get_at((18, 18))[:3] == (245, 230, 184)
+    assert pygame_surface.get_at((20, 18))[:3] == (245, 230, 184)
 
 
-def test_action_buttons_keep_their_existing_rectangles():
+def test_action_buttons_form_an_even_row():
     assert BUTTONS[0].topleft == (20, 375)
-    assert BUTTONS[2].size == (180, 85)
-    assert BUTTONS[3].size == (175, 85)
+    assert all(button.size == (178, 85) for button in BUTTONS)
+    assert BUTTONS[3].right == 780
+    assert all(b.left - a.right == 16 for a, b in zip(BUTTONS, BUTTONS[1:]))
 
 
 def test_home_draws_five_compact_stat_indicators(tmp_path, pygame_surface, monkeypatch):
@@ -101,6 +102,7 @@ def test_home_draws_five_compact_stat_indicators(tmp_path, pygame_surface, monke
     app.draw()
 
     assert {"Health", "Hunger", "Happiness", "Energy", "Sleep"} <= set(text)
+    assert "Bulbasaur" in text
     assert pygame_surface.get_at((40, 52))[:3] != pygame_surface.get_at((180, 52))[:3]
 
 
@@ -165,10 +167,11 @@ def test_menu_has_details_save_status_and_exit(tmp_path, pygame_surface, monkeyp
     monkeypatch.setattr(app, "_text", record_text)
     app.draw()
 
-    assert "Bulbasaur" in text
-    assert any(value.startswith("Save:") for value in text)
-    assert any(value.startswith("Status:") for value in text)
-    assert "Exit to desktop" in text
+    assert "Bulbasaur" not in text
+    assert "Storage" in text
+    assert "Local" in text
+    assert "Status" in text
+    assert "Exit" in text
     app.handle_tap((630, 410))
     assert app.exit_requested is True
 
@@ -279,7 +282,8 @@ def test_awake_status_names_strongest_need(tmp_path, pygame_surface, monkeypatch
     app.handle_tap(MENU_BUTTON.center)
     app.draw()
 
-    assert f"Status: {status}" in text
+    assert "Status" in text
+    assert status in text
 
 
 def test_awake_status_chooses_lowest_stat(tmp_path, pygame_surface, monkeypatch):
@@ -300,7 +304,8 @@ def test_awake_status_chooses_lowest_stat(tmp_path, pygame_surface, monkeypatch)
     app.handle_tap(MENU_BUTTON.center)
     app.draw()
 
-    assert "Status: Needs rest" in text
+    assert "Status" in text
+    assert "Needs rest" in text
 
 
 @pytest.mark.parametrize(
@@ -412,7 +417,7 @@ def test_home_draws_successive_pmd_frames(tmp_path, pygame_surface, monkeypatch)
     assert pygame_surface.get_at((400, 245))[:3] == (0, 0, 255)
 
 
-def test_pmd_animations_for_species_use_same_scale_in_habitat(tmp_path, pygame_surface, monkeypatch):
+def test_pmd_animations_keep_same_on_screen_size(tmp_path, pygame_surface, monkeypatch):
     from pokegotchi import app as app_module
 
     pack = tmp_path / "pmd" / "bulbasaur"
@@ -443,8 +448,7 @@ def test_pmd_animations_for_species_use_same_scale_in_habitat(tmp_path, pygame_s
     app._draw_sprite("bulbasaur", area, animation="Idle")
     app._draw_sprite("bulbasaur", area, animation="Hurt")
 
-    factors = [scaled[2] / scaled[0] for scaled in scaled_sizes]
-    assert factors[0] == factors[1]
+    assert scaled_sizes[0][3] == scaled_sizes[1][3]
 
 
 def test_faint_animation_starts_when_health_reaches_zero(tmp_path, pygame_surface, monkeypatch):

@@ -42,13 +42,30 @@ class PmdAnimationPlayer:
         self.root = Path(root)
         self._metadata: dict[str, dict[str, ElementTree.Element]] = {}
         self._animations: dict[tuple[str, str], _Animation | None] = {}
+        self._content_heights: dict[tuple[str, str], int] = {}
 
     def frame(self, species: str, name: str, elapsed_ms: int) -> pygame.Surface | None:
+        animation = self._animation_for(species, name)
+        if animation is None:
+            return None
+        return animation.frame(elapsed_ms, loop=name != "Faint")
+
+    def content_height(self, species: str, name: str) -> int:
+        key = species, name
+        if key not in self._content_heights:
+            animation = self._animation_for(species, name)
+            height = 0
+            if animation is not None:
+                height = max(frame.get_bounding_rect().height for frame in animation.frames)
+            self._content_heights[key] = height
+        return self._content_heights[key]
+
+    def _animation_for(self, species: str, name: str) -> _Animation | None:
         candidates = (name, "Hurt", "Idle") if name == "Faint" else (name, "Idle")
         for candidate in dict.fromkeys(candidates):
             animation = self._load(species, candidate)
             if animation is not None:
-                return animation.frame(elapsed_ms, loop=name != "Faint")
+                return animation
         return None
 
     def max_frame_size(self, species: str) -> tuple[int, int] | None:
