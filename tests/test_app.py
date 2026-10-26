@@ -78,7 +78,7 @@ def test_home_uses_the_ds_panel_and_border_colours(tmp_path, pygame_surface):
     app.draw()
 
     assert pygame_surface.get_at((12, 12))[:3] == (24, 45, 78)
-    assert pygame_surface.get_at((20, 18))[:3] == (245, 230, 184)
+    assert pygame_surface.get_at((20, 14))[:3] == (245, 230, 184)
 
 
 def test_action_buttons_form_an_even_row():
@@ -337,7 +337,7 @@ def test_sleep_button_wakes_a_sleeping_pokemon(tmp_path, pygame_surface):
     assert app.reaction_text
 
 
-def test_evolution_waits_two_seconds_before_saving(tmp_path, pygame_surface, monkeypatch):
+def test_evolution_waits_three_seconds_before_saving(tmp_path, pygame_surface, monkeypatch):
     path = tmp_path / "save.json"
     state = new_game("bulbasaur", datetime.now(timezone.utc))
     state.level, state.xp = 4, 99
@@ -350,11 +350,11 @@ def test_evolution_waits_two_seconds_before_saving(tmp_path, pygame_surface, mon
     assert app.screen == "evolution"
     assert load_game(path).level == 4
     app.draw()
-    monkeypatch.setattr(pygame.time, "get_ticks", lambda: 2999)
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: 3999)
     app.draw()
     assert app.screen == "evolution"
     assert load_game(path).level == 4
-    monkeypatch.setattr(pygame.time, "get_ticks", lambda: 3000)
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: 4000)
     app.draw()
     assert app.screen == "home"
     assert load_game(path).level == 5

@@ -14,12 +14,14 @@ from .state import GameState, advance_time, apply_action, new_game, species_for
 SPRITE_DIR = Path(__file__).resolve().parents[2] / "assets" / "sprites"
 PMD_DIR = Path(__file__).resolve().parents[2] / "assets" / "pmd"
 STARTERS = ("bulbasaur", "charmander", "squirtle")
+EVOLUTION_MS = 3000
+EVOLUTION_REVEAL_MS = 1500
 STARTER_CARDS = tuple(pygame.Rect(x, 155, 220, 195) for x in (30, 290, 550))
 BUTTONS = tuple(pygame.Rect(20 + index * 194, 375, 178, 85) for index in range(4))
-MENU_BUTTON = pygame.Rect(704, 28, 60, 60)
+MENU_BUTTON = pygame.Rect(704, 16, 60, 60)
 BACK_BUTTON = pygame.Rect(40, 26, 72, 72)
 MENU_EXIT_BUTTON = pygame.Rect(688, 372, 72, 72)
-HABITAT = pygame.Rect(20, 112, 760, 248)
+HABITAT = pygame.Rect(20, 88, 760, 272)
 NAVY = (24, 45, 78)
 CREAM = (245, 230, 184)
 GRASS = (105, 160, 103)
@@ -63,7 +65,7 @@ class PokegotchiApp:
 
     def draw(self) -> None:
         now = pygame.time.get_ticks()
-        if self.screen == "evolution" and now - self.evolution_started_ms >= 2000:
+        if self.screen == "evolution" and now - self.evolution_started_ms >= EVOLUTION_MS:
             self.screen = "home"
             save_game(self.save_path, self.state)
 
@@ -171,7 +173,7 @@ class PokegotchiApp:
 
     def _draw_home(self, now: int) -> None:
         assert self.state is not None
-        self._draw_panel(pygame.Rect(20, 18, 760, 78))
+        self._draw_panel(pygame.Rect(20, 14, 760, 64))
         self._draw_stats()
         self._draw_habitat()
         self._draw_name_chip()
@@ -226,7 +228,7 @@ class PokegotchiApp:
         )
         for index, (label, value, color) in enumerate(stats):
             x = 80 + index * 132
-            self._draw_stat_icon(label, x, 28, color)
+            self._draw_stat_icon(label, x, 16, color)
             if label == "Sleep":
                 text = value
                 text_color = INK if self.state.asleep else MUTED
@@ -234,7 +236,7 @@ class PokegotchiApp:
                 text = str(value)
                 text_color = self._stat_color(value)
             width = self._font.size(text)[0]
-            self._text(text, x + 14 - width // 2, 58, color=text_color)
+            self._text(text, x + 14 - width // 2, 46, color=text_color)
 
     def _draw_stat_icon(self, label: str, x: int, y: int, color: tuple[int, int, int]) -> None:
         pygame.draw.rect(self.surface, SHADOW, pygame.Rect(x + 2, y + 2, 28, 28))
@@ -262,7 +264,7 @@ class PokegotchiApp:
         assert self.state is not None
         name = species_for(self.state).capitalize()
         text_width, text_height = self._font.size(name)
-        chip = pygame.Rect(36, 124, text_width + 26, 36)
+        chip = pygame.Rect(36, 100, text_width + 26, 36)
         pygame.draw.rect(self.surface, SHADOW, chip.move(2, 2))
         pygame.draw.rect(self.surface, SAND, chip)
         pygame.draw.rect(self.surface, CREAM, chip, width=2)
@@ -406,26 +408,38 @@ class PokegotchiApp:
 
     def _draw_evolution(self, now: int) -> None:
         elapsed = now - self.evolution_started_ms
-        shown_species = self.old_species if elapsed // 200 % 2 == 0 else self.new_species
+        revealed = elapsed >= EVOLUTION_REVEAL_MS
+        shown_species = self.new_species if revealed else self.old_species
         panel = pygame.Rect(100, 40, 600, 400)
         self._draw_panel(panel)
         self._draw_evolution_effect(panel, elapsed)
-        self._text("Evolution!", 317, 65, large=True)
+        if revealed:
+            title = "Congratulations"
+            subtitle = f"{self.old_species.capitalize()} has evolved into {self.new_species.capitalize()}!"
+            title_y = 58
+        else:
+            title = f"What? {self.old_species.capitalize()} is evolving!"
+            subtitle = ""
+            title_y = 64
+        headline = self._large_font.render(title, False, INK)
+        self.surface.blit(headline, headline.get_rect(center=(400, title_y)))
+        if subtitle:
+            line = self._font.render(subtitle, False, SAND)
+            self.surface.blit(line, line.get_rect(center=(400, title_y + 38)))
         self._draw_sprite(shown_species, pygame.Rect(260, 130, 280, 230), elapsed_ms=now)
-        message = f"{self.old_species.capitalize()} is evolving into {self.new_species.capitalize()}!"
-        self._text(message, 400 - self._font.size(message)[0] // 2, 402)
 
     def _draw_evolution_effect(self, panel: pygame.Rect, elapsed_ms: int) -> None:
-        effect = pygame.Surface(panel.size, pygame.SRCALPHA)
-        center = panel.width // 2, panel.height // 2
+        scale = 4
+        small = pygame.Surface((panel.width // scale, panel.height // scale), pygame.SRCALPHA)
+        center = small.get_width() // 2, small.get_height() // 2
 
-        # rotating light rays behind the sprite
+        # rotating light rays behind the sprite, drawn chunky to match the pixel art
         rotation = elapsed_ms * 0.0006
         for index in range(12):
             angle = rotation + index * tau / 12
             spread = 0.06
-            far = 460
-            pygame.draw.polygon(effect, (120, 170, 210, 16), [
+            far = small.get_width()
+            pygame.draw.polygon(small, (120, 170, 210, 16), [
                 center,
                 (center[0] + cos(angle - spread) * far, center[1] + sin(angle - spread) * far),
                 (center[0] + cos(angle + spread) * far, center[1] + sin(angle + spread) * far),
@@ -434,17 +448,20 @@ class PokegotchiApp:
         # expanding pulse rings
         for offset in (0, 400):
             age = (elapsed_ms + offset) % 800
-            radius = 40 + age * 0.34
+            radius = 10 + age * 0.085
             shade = 90 + int(45 * (1 - age / 800))
-            pygame.draw.circle(effect, (shade, shade + 32, shade + 58, 70), center, int(radius), 2)
+            pygame.draw.circle(small, (shade, shade + 32, shade + 58, 70), center, int(radius), 1)
 
-        # orbiting sparkles
+        effect = pygame.transform.scale(small, panel.size)
+        full_center = panel.width // 2, panel.height // 2
+
+        # orbiting sparkles stay sharp and unfiltered
         for index in range(14):
             phase = elapsed_ms * 0.0025 + index * 1.7
             angle = index * 2.4 + elapsed_ms * 0.0004
             radius = 90 + (index * 53) % 150 + sin(phase) * 12
-            x = round(center[0] + cos(angle) * radius)
-            y = round(center[1] + sin(angle) * radius * 0.75)
+            x = round(full_center[0] + cos(angle) * radius)
+            y = round(full_center[1] + sin(angle) * radius * 0.75)
             if y > 330:
                 continue
             twinkle = (sin(phase * 2) + 1) / 2
