@@ -101,9 +101,10 @@ def test_home_draws_five_compact_stat_indicators(tmp_path, pygame_surface, monke
     monkeypatch.setattr(app, "_text", record_text)
     app.draw()
 
-    assert {"Health", "Hunger", "Happiness", "Energy", "Sleep"} <= set(text)
+    assert {"Health", "Hunger", "Happiness", "Energy", "Sleep"}.isdisjoint(text)
+    assert text.count("80") >= 4
     assert "Bulbasaur" in text
-    assert pygame_surface.get_at((40, 52))[:3] != pygame_surface.get_at((180, 52))[:3]
+    assert pygame_surface.get_at((40, 130))[:3] == (214, 181, 109)
 
 
 def test_home_draws_shared_outdoor_habitat(tmp_path, pygame_surface):
@@ -112,7 +113,7 @@ def test_home_draws_shared_outdoor_habitat(tmp_path, pygame_surface):
 
     app.draw()
 
-    assert pygame_surface.get_at((60, 140))[:3] == (113, 181, 205)
+    assert pygame_surface.get_at((30, 180))[:3] == (113, 181, 205)
     assert pygame_surface.get_at((60, 300))[:3] == (105, 160, 103)
     assert pygame_surface.get_at((510, 320))[:3] == (214, 181, 109)
 

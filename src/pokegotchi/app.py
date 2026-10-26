@@ -1,6 +1,7 @@
 """Touchscreen view for the Pokegotchi game."""
 
 from datetime import datetime, timezone
+from math import cos, sin, tau
 from pathlib import Path
 
 import pygame
@@ -173,6 +174,7 @@ class PokegotchiApp:
         self._draw_panel(pygame.Rect(20, 18, 760, 78))
         self._draw_stats()
         self._draw_habitat()
+        self._draw_name_chip()
         self._draw_button(MENU_BUTTON, SAND)
         self._draw_menu_icon(MENU_BUTTON.center)
         reaction_age = now - self.reaction_started_ms
@@ -206,6 +208,13 @@ class PokegotchiApp:
         elif age >= 1200:
             self.reaction_text = ""
 
+    def _stat_color(self, value: int) -> tuple[int, int, int]:
+        if value >= 67:
+            return INK
+        if value >= 34:
+            return (220, 168, 79)
+        return (216, 105, 105)
+
     def _draw_stats(self) -> None:
         assert self.state is not None
         stats = (
@@ -213,16 +222,19 @@ class PokegotchiApp:
             ("Hunger", self.state.hunger, (220, 168, 79)),
             ("Happiness", self.state.happiness, (107, 177, 120)),
             ("Energy", self.state.energy, (112, 150, 211)),
-            ("Sleep", "ON" if self.state.asleep else "OFF", SKY),
+            ("Sleep", "Z" if self.state.asleep else "-", SKY),
         )
-        self._text(species_for(self.state).capitalize(), 34, 44)
-        pygame.draw.line(self.surface, TEXTURE, (166, 32), (166, 82), 2)
-        x = 178
-        for label, value, color in stats:
-            self._draw_stat_icon(label, x, 40, color)
-            self._text(label, x + 40, 34, small=True)
-            self._text(str(value), x + 40, 59, small=True)
-            x += 46 + self._small_font.size(label)[0]
+        for index, (label, value, color) in enumerate(stats):
+            x = 80 + index * 132
+            self._draw_stat_icon(label, x, 28, color)
+            if label == "Sleep":
+                text = value
+                text_color = INK if self.state.asleep else MUTED
+            else:
+                text = str(value)
+                text_color = self._stat_color(value)
+            width = self._font.size(text)[0]
+            self._text(text, x + 14 - width // 2, 58, color=text_color)
 
     def _draw_stat_icon(self, label: str, x: int, y: int, color: tuple[int, int, int]) -> None:
         pygame.draw.rect(self.surface, SHADOW, pygame.Rect(x + 2, y + 2, 28, 28))
@@ -246,13 +258,23 @@ class PokegotchiApp:
             pygame.draw.circle(self.surface, CREAM, (x + 14, y + 14), 9)
             pygame.draw.circle(self.surface, color, (x + 19, y + 9), 8)
 
+    def _draw_name_chip(self) -> None:
+        assert self.state is not None
+        name = species_for(self.state).capitalize()
+        text_width, text_height = self._font.size(name)
+        chip = pygame.Rect(36, 124, text_width + 26, 36)
+        pygame.draw.rect(self.surface, SHADOW, chip.move(2, 2))
+        pygame.draw.rect(self.surface, SAND, chip)
+        pygame.draw.rect(self.surface, CREAM, chip, width=2)
+        self._text(name, chip.centerx - text_width // 2, chip.centery - text_height // 2, color=NAVY)
+
     def _draw_habitat(self) -> None:
         pygame.draw.rect(self.surface, SHADOW, HABITAT.move(2, 2))
         pygame.draw.rect(self.surface, SKY, HABITAT)
         pygame.draw.rect(self.surface, GRASS, pygame.Rect(HABITAT.x, 210, HABITAT.width, 150))
         pygame.draw.ellipse(self.surface, SAND, pygame.Rect(245, 270, 310, 75))
         pygame.draw.ellipse(self.surface, (186, 147, 87), pygame.Rect(279, 328, 235, 13))
-        for x, y in ((105, 150), (585, 169), (640, 145)):
+        for x, y in ((230, 156), (585, 169), (640, 145)):
             pygame.draw.rect(self.surface, CREAM, pygame.Rect(x, y, 56, 8))
             pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + 11, y - 7, 34, 8))
         for x, y in ((93, 266), (166, 318), (604, 286), (695, 325)):
@@ -266,9 +288,13 @@ class PokegotchiApp:
     def _draw_care_icon(self, action: str, x: int, y: int, color: tuple[int, int, int]) -> None:
         pygame.draw.rect(self.surface, SHADOW, pygame.Rect(x - 20, y - 18, 40, 36))
         if action == "feed":
-            pygame.draw.ellipse(self.surface, color, pygame.Rect(x - 13, y - 4, 26, 13))
-            pygame.draw.rect(self.surface, color, pygame.Rect(x - 10, y + 4, 20, 6))
-            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x - 3, y - 12, 6, 5))
+            pygame.draw.polygon(self.surface, color, [
+                (x - 14, y), (x + 14, y), (x + 9, y + 12), (x - 9, y + 12),
+            ])
+            pygame.draw.ellipse(self.surface, color, pygame.Rect(x - 11, y - 13, 22, 14))
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x - 15, y - 2, 30, 3))
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x - 6, y - 18, 3, 4))
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + 3, y - 18, 3, 4))
         elif action == "play":
             pygame.draw.circle(self.surface, color, (x, y), 12)
             pygame.draw.circle(self.surface, CREAM, (x, y), 12, 2)
@@ -313,27 +339,40 @@ class PokegotchiApp:
         title = self._large_font.render("Menu", False, INK)
         self.surface.blit(title, title.get_rect(center=(400, 56)))
 
-        left = pygame.Rect(40, 120, 350, 200)
-        right = pygame.Rect(410, 120, 350, 200)
-        for card in (left, right):
-            self._draw_panel(card)
-            pygame.draw.rect(self.surface, SAND, pygame.Rect(card.x + 6, card.y + 6, card.width - 12, 4))
+        card = pygame.Rect(40, 112, 720, 228)
+        self._draw_panel(card)
+        pygame.draw.rect(self.surface, SAND, pygame.Rect(card.x + 6, card.y + 6, card.width - 12, 4))
 
-        self._draw_card_title(species_for(self.state).capitalize(), left)
-        self._draw_rows(left, (
-            ("Level", str(self.state.level)),
-            ("XP", str(self.state.xp)),
-            ("Status", self._status()),
-        ), left.y + 82)
+        self._text(species_for(self.state).capitalize(), 64, 136, large=True)
+        if self.state.fainted:
+            status_color = (216, 105, 105)
+        elif self.state.asleep:
+            status_color = SKY
+        else:
+            status_color = self._stat_color(min(
+                self.state.health, self.state.hunger, self.state.happiness, self.state.energy,
+            ))
+        groups = (
+            ("Level", str(self.state.level), 64, INK),
+            ("XP", str(self.state.xp), 260, INK),
+            ("Status", self._status(), 400, status_color),
+            ("Storage", "Local", 580, INK),
+        )
+        for label, value, x, color in groups:
+            self._text(label, x, 200, small=True, color=MUTED)
+            self._text(value, x, 222, color=color)
 
-        self._draw_card_title("Save", right)
-        self._draw_rows(right, (
-            ("Storage", "Local"),
-            ("Updated", self.state.last_updated.strftime("%Y-%m-%d %H:%M UTC")),
-        ), right.y + 82)
+        pygame.draw.line(self.surface, TEXTURE, (64, 270), (736, 270), 2)
+        self._draw_clock_icon(70, 294)
+        self._text(self.state.last_updated.strftime("%Y-%m-%d %H:%M UTC"), 88, 286, small=True, color=MUTED)
 
         self._draw_button(MENU_EXIT_BUTTON, SAND)
         self._draw_exit_icon(MENU_EXIT_BUTTON.center)
+
+    def _draw_clock_icon(self, x: int, y: int) -> None:
+        pygame.draw.circle(self.surface, MUTED, (x, y), 7, 2)
+        pygame.draw.line(self.surface, MUTED, (x, y), (x, y - 4), 2)
+        pygame.draw.line(self.surface, MUTED, (x, y), (x + 3, y + 2), 2)
 
     def _draw_back_icon(self, center: tuple[int, int]) -> None:
         x, y = center
@@ -368,10 +407,53 @@ class PokegotchiApp:
     def _draw_evolution(self, now: int) -> None:
         elapsed = now - self.evolution_started_ms
         shown_species = self.old_species if elapsed // 200 % 2 == 0 else self.new_species
-        self._draw_panel(pygame.Rect(100, 40, 600, 400))
+        panel = pygame.Rect(100, 40, 600, 400)
+        self._draw_panel(panel)
+        self._draw_evolution_effect(panel, elapsed)
         self._text("Evolution!", 317, 65, large=True)
         self._draw_sprite(shown_species, pygame.Rect(260, 130, 280, 230), elapsed_ms=now)
-        self._text(f"{self.old_species.capitalize()} is evolving into {self.new_species.capitalize()}!", 160, 402)
+        message = f"{self.old_species.capitalize()} is evolving into {self.new_species.capitalize()}!"
+        self._text(message, 400 - self._font.size(message)[0] // 2, 402)
+
+    def _draw_evolution_effect(self, panel: pygame.Rect, elapsed_ms: int) -> None:
+        effect = pygame.Surface(panel.size, pygame.SRCALPHA)
+        center = panel.width // 2, panel.height // 2
+
+        # rotating light rays behind the sprite
+        rotation = elapsed_ms * 0.0006
+        for index in range(12):
+            angle = rotation + index * tau / 12
+            spread = 0.06
+            far = 460
+            pygame.draw.polygon(effect, (120, 170, 210, 16), [
+                center,
+                (center[0] + cos(angle - spread) * far, center[1] + sin(angle - spread) * far),
+                (center[0] + cos(angle + spread) * far, center[1] + sin(angle + spread) * far),
+            ])
+
+        # expanding pulse rings
+        for offset in (0, 400):
+            age = (elapsed_ms + offset) % 800
+            radius = 40 + age * 0.34
+            shade = 90 + int(45 * (1 - age / 800))
+            pygame.draw.circle(effect, (shade, shade + 32, shade + 58, 70), center, int(radius), 2)
+
+        # orbiting sparkles
+        for index in range(14):
+            phase = elapsed_ms * 0.0025 + index * 1.7
+            angle = index * 2.4 + elapsed_ms * 0.0004
+            radius = 90 + (index * 53) % 150 + sin(phase) * 12
+            x = round(center[0] + cos(angle) * radius)
+            y = round(center[1] + sin(angle) * radius * 0.75)
+            if y > 330:
+                continue
+            twinkle = (sin(phase * 2) + 1) / 2
+            size = 2 + round(twinkle * 3)
+            color = (245, 230, 184, int(80 + 150 * twinkle))
+            pygame.draw.rect(effect, color, pygame.Rect(x - size, y - 1, size * 2 + 1, 3))
+            pygame.draw.rect(effect, color, pygame.Rect(x - 1, y - size, 3, size * 2 + 1))
+
+        self.surface.blit(effect, panel.topleft)
 
     def _draw_sprite(self, species: str, area: pygame.Rect, *, animation: str = "Idle", elapsed_ms: int = 0) -> None:
         animated = self._animations.frame(species, animation, elapsed_ms)
