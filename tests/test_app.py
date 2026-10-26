@@ -167,12 +167,11 @@ def test_menu_has_details_save_status_and_exit(tmp_path, pygame_surface, monkeyp
     monkeypatch.setattr(app, "_text", record_text)
     app.draw()
 
-    assert "Bulbasaur" not in text
+    assert "Bulbasaur" in text
     assert "Storage" in text
     assert "Local" in text
     assert "Status" in text
-    assert "Exit" in text
-    app.handle_tap((630, 410))
+    app.handle_tap(MENU_EXIT_BUTTON.center)
     assert app.exit_requested is True
 
 

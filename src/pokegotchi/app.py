@@ -16,8 +16,8 @@ STARTERS = ("bulbasaur", "charmander", "squirtle")
 STARTER_CARDS = tuple(pygame.Rect(x, 155, 220, 195) for x in (30, 290, 550))
 BUTTONS = tuple(pygame.Rect(20 + index * 194, 375, 178, 85) for index in range(4))
 MENU_BUTTON = pygame.Rect(704, 28, 60, 60)
-BACK_BUTTON = pygame.Rect(40, 32, 86, 52)
-MENU_EXIT_BUTTON = pygame.Rect(40, 372, 720, 72)
+BACK_BUTTON = pygame.Rect(40, 26, 72, 72)
+MENU_EXIT_BUTTON = pygame.Rect(688, 372, 72, 72)
 HABITAT = pygame.Rect(20, 112, 760, 248)
 NAVY = (24, 45, 78)
 CREAM = (245, 230, 184)
@@ -309,11 +309,7 @@ class PokegotchiApp:
         assert self.state is not None
         self._draw_panel(pygame.Rect(20, 18, 760, 444))
         self._draw_button(BACK_BUTTON, SKY)
-        back_w, back_h = self._small_font.size("Back")
-        self._text(
-            "Back", BACK_BUTTON.centerx - back_w // 2, BACK_BUTTON.centery - back_h // 2,
-            small=True, color=NAVY,
-        )
+        self._draw_back_icon(BACK_BUTTON.center)
         title = self._large_font.render("Menu", False, INK)
         self.surface.blit(title, title.get_rect(center=(400, 56)))
 
@@ -323,7 +319,7 @@ class PokegotchiApp:
             self._draw_panel(card)
             pygame.draw.rect(self.surface, SAND, pygame.Rect(card.x + 6, card.y + 6, card.width - 12, 4))
 
-        self._draw_card_title("Pokemon", left)
+        self._draw_card_title(species_for(self.state).capitalize(), left)
         self._draw_rows(left, (
             ("Level", str(self.state.level)),
             ("XP", str(self.state.xp)),
@@ -337,11 +333,24 @@ class PokegotchiApp:
         ), right.y + 82)
 
         self._draw_button(MENU_EXIT_BUTTON, SAND)
-        exit_w, exit_h = self._small_font.size("Exit")
-        self._text(
-            "Exit", MENU_EXIT_BUTTON.centerx - exit_w // 2, MENU_EXIT_BUTTON.centery - exit_h // 2,
-            small=True, color=NAVY,
-        )
+        self._draw_exit_icon(MENU_EXIT_BUTTON.center)
+
+    def _draw_back_icon(self, center: tuple[int, int]) -> None:
+        x, y = center
+        pygame.draw.rect(self.surface, NAVY, pygame.Rect(x - 16, y - 3, 20, 6))
+        pygame.draw.polygon(self.surface, NAVY, [
+            (x - 20, y), (x - 8, y - 10), (x - 8, y + 10),
+        ])
+
+    def _draw_exit_icon(self, center: tuple[int, int]) -> None:
+        x, y = center
+        pygame.draw.lines(self.surface, NAVY, False, [
+            (x + 6, y - 14), (x - 10, y - 14), (x - 10, y + 14), (x + 6, y + 14),
+        ], 4)
+        pygame.draw.rect(self.surface, NAVY, pygame.Rect(x - 2, y - 3, 16, 6))
+        pygame.draw.polygon(self.surface, NAVY, [
+            (x + 18, y), (x + 8, y - 8), (x + 8, y + 8),
+        ])
 
     def _draw_card_title(self, title: str, card: pygame.Rect) -> None:
         self._text(title, card.x + 24, card.y + 22, small=True, color=SAND)
