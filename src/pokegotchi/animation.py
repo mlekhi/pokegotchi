@@ -16,8 +16,10 @@ def select_animation(state: GameState, action: str | None = None, elapsed_ms: in
         return "Sleep"
     if state.health < 25:
         return "Hurt"
-    if action in {"feed", "play", "heal"} and 0 <= elapsed_ms < 1200:
+    if action in {"feed", "play"} and 0 <= elapsed_ms < 1200:
         return "Walk"
+    if action == "heal" and 0 <= elapsed_ms < 1200:
+        return "Hop"
     return "Idle"
 
 

@@ -17,6 +17,7 @@ NOW = datetime(2026, 10, 7, tzinfo=timezone.utc)
         ({}, None, 0, "Idle"),
         ({}, "feed", 500, "Walk"),
         ({}, "play", 1199, "Walk"),
+        ({}, "heal", 500, "Hop"),
         ({}, "heal", 1200, "Idle"),
         ({"health": 24}, None, 0, "Hurt"),
         ({"asleep": True}, "play", 500, "Sleep"),
