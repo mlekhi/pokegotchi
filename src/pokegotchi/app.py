@@ -425,19 +425,14 @@ class PokegotchiApp:
         self._draw_dialog(lines)
 
     def _draw_dialog(self, lines: tuple[str, ...]) -> None:
-        box = pygame.Rect(32, 364, 736, 98)
-        pygame.draw.rect(self.surface, SHADOW, box.move(0, 4), border_radius=12)
-        pygame.draw.rect(self.surface, SKY, box, border_radius=12)
+        box = pygame.Rect(116, 336, 568, 88)
+        pygame.draw.rect(self.surface, SHADOW, box.move(0, 4), border_radius=10)
+        pygame.draw.rect(self.surface, SKY, box, border_radius=10)
         inner = box.inflate(-10, -10)
-        pygame.draw.rect(self.surface, CREAM, inner, border_radius=8)
-        pygame.draw.rect(self.surface, NAVY, inner, width=2, border_radius=8)
+        pygame.draw.rect(self.surface, CREAM, inner, border_radius=7)
+        pygame.draw.rect(self.surface, NAVY, inner, width=2, border_radius=7)
         for index, line in enumerate(lines):
-            self._text(line, box.x + 28, box.y + 22 + index * 36, color=NAVY)
-        pygame.draw.polygon(self.surface, NAVY, [
-            (box.right - 34, box.bottom - 22),
-            (box.right - 20, box.bottom - 22),
-            (box.right - 27, box.bottom - 12),
-        ])
+            self._text(line, box.x + 28, box.y + 20 + index * 32, color=NAVY)
 
     def _draw_evolution_effect(self, panel: pygame.Rect, elapsed_ms: int) -> None:
         scale = 4
