@@ -38,7 +38,7 @@ CARE_COLORS = {
     "sleep": (92, 148, 200),
     "wake": (206, 168, 78),
 }
-SPRITE_FILL = 0.48
+SPRITE_HEIGHT = 130
 INK = CREAM
 BACKGROUND = NAVY
 ACCENT = GRASS
@@ -168,6 +168,7 @@ class PokegotchiApp:
         pygame.draw.rect(self.surface, SHADOW, pygame.Rect(rect.x + 4, rect.bottom - 6, rect.width - 8, 2))
 
     def _draw_selection(self, now: int) -> None:
+        self._draw_panel(pygame.Rect(20, 18, 760, 444))
         for card, starter in zip(STARTER_CARDS, STARTERS):
             self._draw_sprite(starter, card.inflate(30, 60), elapsed_ms=now)
         self._draw_dialog(("Choose your starter", "Tap one to begin"), pygame.Rect(80, 356, 640, 92))
@@ -363,7 +364,7 @@ class PokegotchiApp:
         self.surface.blit(title, title.get_rect(center=(400, 56)))
 
         self._text(species_for(self.state).capitalize(), 64, 132, large=True)
-        pygame.draw.ellipse(self.surface, SHADOW, pygame.Rect(510, 264, 140, 14))
+        pygame.draw.ellipse(self.surface, SHADOW, pygame.Rect(540, 252, 100, 12))
         self._draw_sprite(species_for(self.state), pygame.Rect(430, 60, 320, 350), elapsed_ms=now)
         if self.state.fainted:
             status_color = (216, 105, 105)
@@ -511,11 +512,13 @@ class PokegotchiApp:
             content = self._animations.content_height(species, animation)
             if reference and content:
                 # size by visible pixels instead of the padded frame so
-                # every animation shows the pokemon at the same height
-                factor = area.height * SPRITE_FILL / content
+                # every animation and screen shows the pokemon at the same height
+                factor = SPRITE_HEIGHT / content
                 bounds = sprite.get_bounding_rect()
                 if bounds.width and bounds.width * factor > area.width:
                     factor = area.width / bounds.width
+                if content * factor > area.height:
+                    factor = area.height / content
         size = (max(1, round(width * factor)), max(1, round(height * factor)))
         scaled = pygame.transform.scale(sprite, size)
         if animated is None:
