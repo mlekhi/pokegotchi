@@ -171,7 +171,7 @@ class PokegotchiApp:
         self._draw_panel(pygame.Rect(20, 18, 760, 444))
         for card, starter in zip(STARTER_CARDS, STARTERS):
             self._draw_sprite(starter, card.inflate(30, 60), elapsed_ms=now)
-        self._draw_dialog(("Choose your starter", "Tap one to begin"), pygame.Rect(80, 356, 640, 92))
+        self._draw_dialog(("Choose your starter!", "Tap one to begin."), pygame.Rect(80, 356, 640, 92))
 
     def _draw_home(self, now: int) -> None:
         assert self.state is not None
