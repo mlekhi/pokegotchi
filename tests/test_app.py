@@ -88,7 +88,7 @@ def test_action_buttons_form_an_even_row():
     assert all(b.left - a.right == 16 for a, b in zip(BUTTONS, BUTTONS[1:]))
 
 
-def test_home_draws_five_compact_stat_indicators(tmp_path, pygame_surface, monkeypatch):
+def test_home_draws_minimal_name_and_level_header(tmp_path, pygame_surface, monkeypatch):
     app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
     app.handle_tap((140, 230))
     text = []
@@ -102,9 +102,10 @@ def test_home_draws_five_compact_stat_indicators(tmp_path, pygame_surface, monke
     app.draw()
 
     assert {"Health", "Hunger", "Happiness", "Energy", "Sleep"}.isdisjoint(text)
-    assert text.count("80") >= 4
+    assert "80" not in text
+    assert "lv. 1" in text
     assert "Bulbasaur" in text
-    assert pygame_surface.get_at((40, 130))[:3] == (214, 181, 109)
+    assert pygame_surface.get_at((40, 130))[:3] == (113, 181, 205)
 
 
 def test_home_draws_shared_outdoor_habitat(tmp_path, pygame_surface):
@@ -194,8 +195,8 @@ def test_menu_has_details_save_status_and_exit(tmp_path, pygame_surface, monkeyp
     app.draw()
 
     assert "Bulbasaur" in text
-    assert "Level" in text
-    assert "XP" in text
+    assert "Level" not in text
+    assert "XP" not in text
     assert "Status" in text
     assert "Storage" not in text
     assert "Local" not in text
@@ -707,3 +708,36 @@ def test_pi_installer_creates_venv_and_autostart_entry(tmp_path, spaced_paths):
         "-m",
         "pokegotchi.main",
     ]
+
+
+def test_pokemon_tap_toggles_needs_without_changing_game(tmp_path, pygame_surface, monkeypatch):
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    app.handle_tap((140, 230))
+    before = vars(app.state).copy()
+    assert not app.show_needs
+    app.handle_tap((400, 230))
+    assert app.show_needs
+    labels = []
+    draw_text = app._text
+
+    def record_text(value, *args, **kwargs):
+        labels.append(value)
+        draw_text(value, *args, **kwargs)
+
+    monkeypatch.setattr(app, "_text", record_text)
+    app.draw()
+    assert {"hunger", "happiness", "health", "energy", "xp 0 / 25"} <= set(labels)
+    assert vars(app.state) == before
+    app.handle_tap((400, 230))
+    assert not app.show_needs
+
+
+def test_needs_close_on_outside_tap_care_and_menu(tmp_path, pygame_surface):
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    app.handle_tap((140, 230))
+    for target in ((40, 180), BUTTONS[0].center, MENU_BUTTON.center):
+        app.handle_tap((400, 230))
+        assert app.show_needs
+        app.handle_tap(target)
+        assert not app.show_needs
+    assert app.screen == "menu"

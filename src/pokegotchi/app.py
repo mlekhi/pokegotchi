@@ -21,6 +21,7 @@ BUTTONS = tuple(pygame.Rect(20 + index * 194, 375, 178, 85) for index in range(4
 MENU_BUTTON = pygame.Rect(704, 16, 60, 60)
 BACK_BUTTON = pygame.Rect(40, 26, 72, 72)
 MENU_EXIT_BUTTON = pygame.Rect(688, 26, 72, 72)
+POKEMON_TAP_AREA = pygame.Rect(335, 160, 130, 145)
 HABITAT = pygame.Rect(20, 88, 760, 272)
 NAVY = (24, 45, 78)
 CREAM = (245, 230, 184)
@@ -51,6 +52,7 @@ class PokegotchiApp:
         self.state: GameState | None = load_game(self.save_path)
         self.screen = "home" if self.state is not None else "starter_selection"
         self.exit_requested = False
+        self.show_needs = False
         self.reaction_text = ""
         self.reaction_action: str | None = None
         self.reaction_started_ms = 0
@@ -115,6 +117,11 @@ class PokegotchiApp:
         if self.screen != "home" or self.state is None:
             return
 
+        if POKEMON_TAP_AREA.collidepoint(position):
+            self.show_needs = not self.show_needs
+            return
+        self.show_needs = False
+
         if MENU_BUTTON.collidepoint(position):
             self.screen = "menu"
             return
@@ -173,9 +180,10 @@ class PokegotchiApp:
     def _draw_home(self, now: int) -> None:
         assert self.state is not None
         self._draw_panel(pygame.Rect(20, 14, 760, 64))
-        self._draw_stats()
+        name = species_for(self.state).capitalize()
+        self._text(name, 40, 34)
+        self._text(f"lv. {self.state.level}", 64 + self._font.size(name)[0], 34)
         self._draw_habitat()
-        self._draw_name_chip()
         self._draw_button(MENU_BUTTON, SAND)
         self._draw_menu_icon(MENU_BUTTON.center)
         reaction_age = now - self.reaction_started_ms
@@ -196,13 +204,52 @@ class PokegotchiApp:
             self._draw_care_button(button, action)
 
         age = now - self.reaction_started_ms
-        if self.reaction_text and 0 <= age < 1200:
+        if self.show_needs:
+            self._draw_needs_bubble()
+        elif self.reaction_text and 0 <= age < 1200:
             text = self._font.render(self.reaction_text, False, NAVY)
             bubble = text.get_rect(center=(400, 122 - age // 120)).inflate(22, 10)
             pygame.draw.rect(self.surface, CREAM, bubble)
             self.surface.blit(text, text.get_rect(center=bubble.center))
         elif age >= 1200:
             self.reaction_text = ""
+
+    def _draw_needs_bubble(self) -> None:
+        assert self.state is not None
+        box = pygame.Rect(70, 106, 265, 190)
+        tail = [(332, 208), (350, 230), (332, 238)]
+        pygame.draw.rect(self.surface, SHADOW, box.move(2, 3), border_radius=5)
+        pygame.draw.polygon(self.surface, NAVY, tail)
+        pygame.draw.rect(self.surface, CREAM, box, border_radius=5)
+        pygame.draw.rect(self.surface, NAVY, box, width=2, border_radius=5)
+        pygame.draw.polygon(self.surface, CREAM, [(333, 212), (346, 228), (333, 234)])
+        needs = (
+            ("hunger", self.state.hunger),
+            ("happiness", self.state.happiness),
+            ("health", self.state.health),
+            ("energy", self.state.energy),
+        )
+        for row, (label, value) in enumerate(needs):
+            y = box.y + 16 + row * 30
+            self._text(label, box.x + 16, y, small=True, color=NAVY)
+            filled = (value + 24) // 25
+            for slot in range(4):
+                x = box.x + 146 + slot * 25
+                if label == "energy":
+                    pygame.draw.rect(self.surface, NAVY, (x, y + 2, 17, 14), width=0 if slot < filled else 2)
+                else:
+                    heart = [(x, y + 3), (x + 4, y), (x + 8, y + 3),
+                             (x + 12, y), (x + 16, y + 3), (x + 16, y + 8),
+                             (x + 8, y + 16), (x, y + 8)]
+                    pygame.draw.polygon(self.surface, NAVY, heart, width=0 if slot < filled else 1)
+        pygame.draw.line(self.surface, NAVY, (86, 251), (319, 251))
+        maximum = self.state.level >= 10
+        target = self.state.level * 25
+        self._text("max level" if maximum else f"xp {self.state.xp} / {target}", 86, 266, small=True, color=NAVY)
+        bar = pygame.Rect(220, 269, 99, 12)
+        pygame.draw.rect(self.surface, NAVY, bar, width=1)
+        progress = 1 if maximum else min(1, self.state.xp / target)
+        pygame.draw.rect(self.surface, SKY, (bar.x + 2, bar.y + 2, int((bar.width - 4) * progress), bar.height - 4))
 
     def _stat_color(self, value: int) -> tuple[int, int, int]:
         if value >= 67:
@@ -370,9 +417,7 @@ class PokegotchiApp:
                 self.state.health, self.state.hunger, self.state.happiness, self.state.energy,
             ))
         groups = (
-            ("Level", str(self.state.level), 64, INK),
-            ("XP", str(self.state.xp), 200, INK),
-            ("Status", self._status(), 330, status_color),
+            ("Status", self._status(), 64, status_color),
         )
         for label, value, x, color in groups:
             self._text(label, x, 204, small=True, color=MUTED)
