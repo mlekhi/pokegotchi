@@ -438,7 +438,7 @@ class PokegotchiApp:
         panel = pygame.Rect(100, 40, 600, 400)
         self._draw_panel(panel)
         self._draw_evolution_effect(panel, elapsed)
-        self._draw_sprite(shown_species, pygame.Rect(260, 130, 280, 230), elapsed_ms=now)
+        self._draw_sprite(shown_species, pygame.Rect(215, 70, 370, 330), elapsed_ms=now)
         if revealed:
             lines = (
                 "Congratulations!",
