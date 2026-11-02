@@ -14,8 +14,6 @@ from .state import GameState, advance_time, apply_action, new_game, species_for
 SPRITE_DIR = Path(__file__).resolve().parents[2] / "assets" / "sprites"
 PMD_DIR = Path(__file__).resolve().parents[2] / "assets" / "pmd"
 STARTERS = ("bulbasaur", "charmander", "squirtle")
-EVOLUTION_MS = 3000
-EVOLUTION_REVEAL_MS = 1500
 STARTER_CARDS = tuple(pygame.Rect(x, 155, 180, 195) for x in (110, 310, 510))
 BUTTONS = tuple(pygame.Rect(20 + index * 194, 375, 178, 85) for index in range(4))
 MENU_BUTTON = pygame.Rect(704, 16, 60, 60)
@@ -57,6 +55,7 @@ class PokegotchiApp:
         self.reaction_action: str | None = None
         self.reaction_started_ms = 0
         self.evolution_started_ms = 0
+        self.evolution_revealed = False
         self.old_species = ""
         self.new_species = ""
         self._sprites: dict[str, pygame.Surface] = {}
@@ -75,10 +74,6 @@ class PokegotchiApp:
 
     def draw(self) -> None:
         now = pygame.time.get_ticks()
-        if self.screen == "evolution" and now - self.evolution_started_ms >= EVOLUTION_MS:
-            self.screen = "home"
-            save_game(self.save_path, self.state)
-
         self.surface.fill(BACKGROUND)
         self._draw_texture()
         if self.screen == "starter_selection":
@@ -100,6 +95,13 @@ class PokegotchiApp:
             save_game(self.save_path, self.state)
 
     def handle_tap(self, position: tuple[int, int]) -> None:
+        if self.screen == "evolution":
+            if not self.evolution_revealed:
+                self.evolution_revealed = True
+            else:
+                self.screen = "home"
+                save_game(self.save_path, self.state)
+            return
         if self.screen == "starter_selection":
             for card, starter in zip(STARTER_CARDS, STARTERS):
                 if card.collidepoint(position):
@@ -149,6 +151,7 @@ class PokegotchiApp:
                 self.old_species = previous_species
                 self.new_species = current_species
                 self.evolution_started_ms = now
+                self.evolution_revealed = False
                 self.screen = "evolution"
             else:
                 save_game(self.save_path, self.state)
@@ -447,7 +450,7 @@ class PokegotchiApp:
 
     def _draw_evolution(self, now: int) -> None:
         elapsed = now - self.evolution_started_ms
-        revealed = elapsed >= EVOLUTION_REVEAL_MS
+        revealed = self.evolution_revealed
         shown_species = self.new_species if revealed else self.old_species
         panel = pygame.Rect(100, 40, 600, 400)
         self._draw_panel(panel)
@@ -461,6 +464,7 @@ class PokegotchiApp:
         else:
             lines = ("What?", f"{self.old_species.capitalize()} is evolving!")
         self._draw_dialog(lines)
+        self._text("tap to continue", 338, 307, small=True, color=MUTED)
 
     def _draw_dialog(self, lines: tuple[str, ...], box: pygame.Rect | None = None) -> None:
         box = box or pygame.Rect(116, 336, 568, 88)

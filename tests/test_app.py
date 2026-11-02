@@ -363,27 +363,45 @@ def test_sleep_button_wakes_a_sleeping_pokemon(tmp_path, pygame_surface):
     assert app.reaction_text
 
 
-def test_evolution_waits_three_seconds_before_saving(tmp_path, pygame_surface, monkeypatch):
+def test_evolution_waits_for_taps_to_reveal_and_finish(tmp_path, pygame_surface, monkeypatch):
     path = tmp_path / "save.json"
     state = new_game("bulbasaur", datetime.now(timezone.utc))
     state.level, state.xp = 4, 99
     save_game(path, state)
     monkeypatch.setattr(pygame.time, "get_ticks", lambda: 1000)
     app = PokegotchiApp(pygame_surface, path)
+    sprites = []
+    draw_sprite = app._draw_sprite
 
+    def record_sprite(species, *args, **kwargs):
+        sprites.append(species)
+        draw_sprite(species, *args, **kwargs)
+
+    monkeypatch.setattr(app, "_draw_sprite", record_sprite)
     app.handle_tap((300, 415))
+    assert app.screen == "evolution"
+    app.draw()
+    assert sprites[-1] == "bulbasaur"
 
-    assert app.screen == "evolution"
-    assert load_game(path).level == 4
-    app.draw()
-    monkeypatch.setattr(pygame.time, "get_ticks", lambda: 3999)
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: 61000)
     app.draw()
     assert app.screen == "evolution"
+    assert sprites[-1] == "bulbasaur"
     assert load_game(path).level == 4
-    monkeypatch.setattr(pygame.time, "get_ticks", lambda: 4000)
+
+    app.handle_tap((400, 380))
     app.draw()
+    assert app.screen == "evolution"
+    assert sprites[-1] == "ivysaur"
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: 121000)
+    app.draw()
+    assert app.screen == "evolution"
+    assert sprites[-1] == "ivysaur"
+
+    app.handle_tap((400, 380))
     assert app.screen == "home"
     assert load_game(path).level == 5
+    assert app.state.xp == 9
 
 
 def test_missing_sprite_draws_named_placeholder(tmp_path, pygame_surface, monkeypatch):
