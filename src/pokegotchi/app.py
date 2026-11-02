@@ -323,9 +323,14 @@ class PokegotchiApp:
             for dx, dy, w, h in ((12, -14, 3, 9), (9, -11, 9, 3)):
                 pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + dx, y + dy, w, h))
         else:
-            pygame.draw.circle(self.surface, CREAM, (x, y), 11)
-            for dx, dy in ((0, -17), (0, 13), (-17, -4), (13, -4), (-12, -15), (9, -15), (-12, 7), (9, 7)):
-                pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + dx, y + dy, 4 if dx == 0 else 8, 8 if dx == 0 else 4))
+            pygame.draw.circle(self.surface, CREAM, (x, y), 10)
+            for dx, dy, width, height in (
+                (-2, -21, 4, 7), (-2, 14, 4, 7),
+                (-21, -2, 7, 4), (14, -2, 7, 4),
+                (-16, -16, 5, 5), (11, -16, 5, 5),
+                (-16, 11, 5, 5), (11, 11, 5, 5),
+            ):
+                pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + dx, y + dy, width, height))
 
     def _draw_menu_icon(self, center: tuple[int, int]) -> None:
         x, y = center

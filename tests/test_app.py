@@ -149,6 +149,22 @@ def test_sleep_button_changes_to_wake_icon_after_sleeping(tmp_path, pygame_surfa
     assert pygame.image.tobytes(pygame_surface.subsurface(icon), "RGB") != sleep_icon
 
 
+
+def test_wake_sun_has_evenly_spaced_rays(tmp_path, pygame_surface):
+    from pokegotchi import app as app_module
+
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    color = app_module.CARE_COLORS["wake"]
+    pygame_surface.fill(color)
+    app._draw_care_icon("wake", 100, 100, color)
+
+    for dx, dy in ((0, -18), (0, 18), (-18, 0), (18, 0),
+                   (-14, -14), (14, -14), (-14, 14), (14, 14)):
+        assert pygame_surface.get_at((100 + dx, 100 + dy))[:3] == app_module.CREAM
+    for dx, dy in ((0, -12), (0, 12), (-12, 0), (12, 0)):
+        assert pygame_surface.get_at((100 + dx, 100 + dy))[:3] == color
+
+
 def test_menu_opens_separately_and_keeps_care_inactive(tmp_path, pygame_surface):
     path = tmp_path / "save.json"
     app = PokegotchiApp(pygame_surface, path)
