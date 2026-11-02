@@ -30,6 +30,14 @@ SKY = (113, 181, 205)
 SHADOW = (12, 28, 52)
 TEXTURE = (34, 59, 88)
 MUTED = (144, 171, 196)
+TILE_EDGE = (150, 209, 235)
+CARE_COLORS = {
+    "feed": (206, 112, 84),
+    "play": (105, 165, 112),
+    "heal": (198, 92, 99),
+    "sleep": (92, 148, 200),
+    "wake": (206, 168, 78),
+}
 SPRITE_FILL = 0.55
 INK = CREAM
 BACKGROUND = NAVY
@@ -192,14 +200,9 @@ class PokegotchiApp:
             animation=animation, elapsed_ms=animation_age,
         )
 
-        labels = ("Feed", "Play", "Heal", "Wake" if self.state.asleep else "Sleep")
-        colors = (GRASS, SAND, (207, 111, 108), SKY)
         actions = ("feed", "play", "heal", "wake" if self.state.asleep else "sleep")
-        for button, label, color, action in zip(BUTTONS, labels, colors, actions):
-            self._draw_button(button, color)
-            self._draw_care_icon(action, button.centerx, 406, color)
-            text = self._small_font.render(label, False, NAVY)
-            self.surface.blit(text, text.get_rect(center=(button.centerx, 443)))
+        for button, action in zip(BUTTONS, actions):
+            self._draw_care_button(button, action)
 
         age = now - self.reaction_started_ms
         if self.reaction_text and 0 <= age < 1200:
@@ -287,31 +290,56 @@ class PokegotchiApp:
             pygame.draw.rect(self.surface, (216, 105, 105), pygame.Rect(x + 1, y + 1, 3, 3))
         pygame.draw.rect(self.surface, CREAM, HABITAT, width=3)
 
-    def _draw_care_icon(self, action: str, x: int, y: int, color: tuple[int, int, int]) -> None:
-        pygame.draw.rect(self.surface, SHADOW, pygame.Rect(x - 20, y - 18, 40, 36))
+    def _draw_care_button(self, button: pygame.Rect, action: str) -> None:
+        tile = pygame.Rect(0, 0, 88, 88)
+        tile.center = button.center
+        pygame.draw.rect(self.surface, SHADOW, tile.move(0, 4), border_radius=20)
+        pygame.draw.rect(self.surface, TILE_EDGE, tile, border_radius=20)
+        fill = tile.inflate(-10, -10)
+        base = CARE_COLORS[action]
+        grad = pygame.Surface(fill.size, pygame.SRCALPHA)
+        for row in range(fill.height):
+            mix = 0.80 + 0.20 * row / max(1, fill.height - 1)
+            shade = tuple(round(255 + (channel - 255) * mix) for channel in base)
+            pygame.draw.line(grad, shade, (0, row), (fill.width - 1, row))
+        mask = pygame.Surface(fill.size, pygame.SRCALPHA)
+        pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=15)
+        grad.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+        self.surface.blit(grad, fill.topleft)
+        self._draw_care_icon(action, tile.centerx, tile.centery + 1, base)
+
+    def _draw_care_icon(self, action: str, x: int, y: int, tile_color: tuple[int, int, int]) -> None:
+        # glyphs are solid cream shapes sitting on the colored tile
         if action == "feed":
-            pygame.draw.polygon(self.surface, color, [
-                (x - 14, y), (x + 14, y), (x + 9, y + 12), (x - 9, y + 12),
+            origin = x - 15
+            for dx in (0, 5, 10):
+                pygame.draw.rect(self.surface, CREAM, pygame.Rect(origin + dx, y - 17, 3, 9))
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(origin, y - 10, 13, 4))
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(origin + 5, y - 6, 3, 22))
+            blade = x + 4
+            pygame.draw.polygon(self.surface, CREAM, [
+                (blade + 1, y - 17), (blade + 9, y - 17), (blade + 9, y - 4),
+                (blade + 5, y - 2), (blade + 1, y - 6),
             ])
-            pygame.draw.ellipse(self.surface, color, pygame.Rect(x - 11, y - 13, 22, 14))
-            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x - 15, y - 2, 30, 3))
-            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x - 6, y - 18, 3, 4))
-            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + 3, y - 18, 3, 4))
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(blade + 2, y - 3, 5, 19))
         elif action == "play":
-            pygame.draw.circle(self.surface, color, (x, y), 12)
-            pygame.draw.circle(self.surface, CREAM, (x, y), 12, 2)
-            pygame.draw.line(self.surface, CREAM, (x - 9, y - 8), (x + 9, y + 8), 2)
+            pygame.draw.circle(self.surface, CREAM, (x, y), 17)
+            for dx in (-7, 3):
+                pygame.draw.rect(self.surface, tile_color, pygame.Rect(x + dx, y - 6, 4, 5))
+            for dx, dy, w, h in ((-6, 4, 3, 3), (-3, 6, 6, 3), (4, 4, 3, 3)):
+                pygame.draw.rect(self.surface, tile_color, pygame.Rect(x + dx, y + dy, w, h))
         elif action == "heal":
-            pygame.draw.rect(self.surface, color, pygame.Rect(x - 4, y - 12, 8, 24))
-            pygame.draw.rect(self.surface, color, pygame.Rect(x - 12, y - 4, 24, 8))
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x - 6, y - 16, 12, 32), border_radius=3)
+            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x - 16, y - 6, 32, 12), border_radius=3)
         elif action == "sleep":
-            pygame.draw.circle(self.surface, color, (x, y), 12)
-            pygame.draw.circle(self.surface, SHADOW, (x + 6, y - 5), 10)
-            pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + 10, y - 12, 5, 2))
+            pygame.draw.circle(self.surface, CREAM, (x - 2, y + 1), 17)
+            pygame.draw.circle(self.surface, tile_color, (x + 9, y - 7), 15)
+            for dx, dy, w, h in ((12, -14, 3, 9), (9, -11, 9, 3)):
+                pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + dx, y + dy, w, h))
         else:
-            pygame.draw.circle(self.surface, color, (x, y), 8)
-            for dx, dy in ((0, -14), (0, 14), (-14, 0), (14, 0), (-10, -10), (10, -10), (-10, 10), (10, 10)):
-                pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + dx - 2, y + dy - 2, 4, 4))
+            pygame.draw.circle(self.surface, CREAM, (x, y), 11)
+            for dx, dy in ((0, -17), (0, 13), (-17, -4), (13, -4), (-12, -15), (9, -15), (-12, 7), (9, 7)):
+                pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + dx, y + dy, 4 if dx == 0 else 8, 8 if dx == 0 else 4))
 
     def _draw_menu_icon(self, center: tuple[int, int]) -> None:
         x, y = center

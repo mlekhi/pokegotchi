@@ -119,12 +119,20 @@ def test_home_draws_shared_outdoor_habitat(tmp_path, pygame_surface):
 
 
 def test_home_care_buttons_show_icon_tiles(tmp_path, pygame_surface):
+    from pokegotchi import app as app_module
+
     app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
     app.handle_tap((140, 230))
 
     app.draw()
 
-    assert all(pygame_surface.get_at((button.centerx - 19, 390))[:3] == (12, 28, 52) for button in BUTTONS)
+    for button, action in zip(BUTTONS, ("feed", "play", "heal", "sleep")):
+        tile = pygame.Rect(0, 0, 88, 88)
+        tile.center = button.center
+        assert pygame_surface.get_at((tile.centerx, tile.top + 2))[:3] == app_module.TILE_EDGE
+        fill = pygame_surface.get_at((tile.x + 24, tile.bottom - 14))[:3]
+        base = app_module.CARE_COLORS[action]
+        assert all(abs(pixel - channel) <= 8 for pixel, channel in zip(fill, base))
 
 
 def test_sleep_button_changes_to_wake_icon_after_sleeping(tmp_path, pygame_surface):
