@@ -38,7 +38,7 @@ CARE_COLORS = {
     "sleep": (92, 148, 200),
     "wake": (206, 168, 78),
 }
-SPRITE_FILL = 0.55
+SPRITE_FILL = 0.48
 INK = CREAM
 BACKGROUND = NAVY
 ACCENT = GRASS
@@ -168,16 +168,9 @@ class PokegotchiApp:
         pygame.draw.rect(self.surface, SHADOW, pygame.Rect(rect.x + 4, rect.bottom - 6, rect.width - 8, 2))
 
     def _draw_selection(self, now: int) -> None:
-        self._draw_panel(pygame.Rect(180, 40, 440, 108))
-        self._text("Choose your starter", 252, 62, large=True)
-        self._text("Tap a card to begin", 313, 112, small=True)
-        colors = (GRASS, SAND, SKY)
-        for card, starter, color in zip(STARTER_CARDS, STARTERS, colors):
-            self._draw_panel(card)
-            pygame.draw.rect(self.surface, color, pygame.Rect(card.x + 6, card.y + 6, card.width - 12, 4))
-            self._draw_sprite(starter, pygame.Rect(card.x + 35, card.y + 15, 150, 135), elapsed_ms=now)
-            label = self._font.render(starter.capitalize(), False, INK)
-            self.surface.blit(label, label.get_rect(center=(card.centerx, card.bottom - 28)))
+        for card, starter in zip(STARTER_CARDS, STARTERS):
+            self._draw_sprite(starter, card.inflate(30, 60), elapsed_ms=now)
+        self._draw_dialog(("Choose your starter", "Tap one to begin"), pygame.Rect(80, 356, 640, 92))
 
     def _draw_home(self, now: int) -> None:
         assert self.state is not None
@@ -293,8 +286,8 @@ class PokegotchiApp:
     def _draw_care_button(self, button: pygame.Rect, action: str) -> None:
         tile = pygame.Rect(0, 0, 88, 88)
         tile.center = button.center
-        pygame.draw.rect(self.surface, SHADOW, tile.move(0, 4), border_radius=20)
-        pygame.draw.rect(self.surface, TILE_EDGE, tile, border_radius=20)
+        pygame.draw.rect(self.surface, SHADOW, tile.move(0, 4))
+        pygame.draw.rect(self.surface, TILE_EDGE, tile)
         fill = tile.inflate(-10, -10)
         base = CARE_COLORS[action]
         grad = pygame.Surface(fill.size, pygame.SRCALPHA)
@@ -303,7 +296,7 @@ class PokegotchiApp:
             shade = tuple(round(255 + (channel - 255) * mix) for channel in base)
             pygame.draw.line(grad, shade, (0, row), (fill.width - 1, row))
         mask = pygame.Surface(fill.size, pygame.SRCALPHA)
-        pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=15)
+        pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect())
         grad.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
         self.surface.blit(grad, fill.topleft)
         self._draw_care_icon(action, tile.centerx, tile.centery + 1, base)
@@ -448,8 +441,8 @@ class PokegotchiApp:
             lines = ("What?", f"{self.old_species.capitalize()} is evolving!")
         self._draw_dialog(lines)
 
-    def _draw_dialog(self, lines: tuple[str, ...]) -> None:
-        box = pygame.Rect(116, 336, 568, 88)
+    def _draw_dialog(self, lines: tuple[str, ...], box: pygame.Rect | None = None) -> None:
+        box = box or pygame.Rect(116, 336, 568, 88)
         pygame.draw.rect(self.surface, SHADOW, box.move(0, 4), border_radius=10)
         pygame.draw.rect(self.surface, SKY, box, border_radius=10)
         inner = box.inflate(-10, -10)
