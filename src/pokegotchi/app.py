@@ -30,7 +30,7 @@ SKY = (113, 181, 205)
 SHADOW = (12, 28, 52)
 TEXTURE = (34, 59, 88)
 MUTED = (144, 171, 196)
-SPRITE_SCALE = 1.25
+SPRITE_FILL = 0.55
 INK = CREAM
 BACKGROUND = NAVY
 ACCENT = GRASS
@@ -188,7 +188,7 @@ class PokegotchiApp:
             self._animation_started_ms = now
         animation_age = reaction_age if animation == "Walk" else now - self._animation_started_ms
         self._draw_sprite(
-            species, pygame.Rect(295, 145, 210, 202),
+            species, pygame.Rect(235, 100, 330, 350),
             animation=animation, elapsed_ms=animation_age,
         )
 
@@ -341,13 +341,9 @@ class PokegotchiApp:
         title = self._large_font.render("Menu", False, INK)
         self.surface.blit(title, title.get_rect(center=(400, 56)))
 
-        card = pygame.Rect(40, 112, 720, 228)
-        self._draw_panel(card)
-        pygame.draw.rect(self.surface, SAND, pygame.Rect(card.x + 6, card.y + 6, card.width - 12, 4))
-
-        self._text(species_for(self.state).capitalize(), 64, 136, large=True)
-        pygame.draw.ellipse(self.surface, SHADOW, pygame.Rect(585, 224, 110, 12))
-        self._draw_sprite(species_for(self.state), pygame.Rect(540, 96, 200, 230), elapsed_ms=now)
+        self._text(species_for(self.state).capitalize(), 64, 132, large=True)
+        pygame.draw.ellipse(self.surface, SHADOW, pygame.Rect(510, 264, 140, 14))
+        self._draw_sprite(species_for(self.state), pygame.Rect(430, 60, 320, 350), elapsed_ms=now)
         if self.state.fainted:
             status_color = (216, 105, 105)
         elif self.state.asleep:
@@ -358,16 +354,16 @@ class PokegotchiApp:
             ))
         groups = (
             ("Level", str(self.state.level), 64, INK),
-            ("XP", str(self.state.xp), 220, INK),
-            ("Status", self._status(), 380, status_color),
+            ("XP", str(self.state.xp), 200, INK),
+            ("Status", self._status(), 330, status_color),
         )
         for label, value, x, color in groups:
-            self._text(label, x, 200, small=True, color=MUTED)
-            self._text(value, x, 222, color=color)
+            self._text(label, x, 204, small=True, color=MUTED)
+            self._text(value, x, 226, color=color)
 
-        pygame.draw.line(self.surface, TEXTURE, (64, 270), (736, 270), 2)
-        self._draw_clock_icon(70, 294)
-        self._text(self.state.last_updated.strftime("%Y-%m-%d %H:%M UTC"), 88, 286, small=True, color=MUTED)
+        pygame.draw.line(self.surface, TEXTURE, (64, 286), (400, 286), 2)
+        self._draw_clock_icon(70, 310)
+        self._text(self.state.last_updated.strftime("%Y-%m-%d %H:%M UTC"), 88, 302, small=True, color=MUTED)
 
         self._draw_button(MENU_EXIT_BUTTON, SAND)
         self._draw_exit_icon(MENU_EXIT_BUTTON.center)
@@ -493,7 +489,12 @@ class PokegotchiApp:
             reference = self._animations.content_height(species, "Idle")
             content = self._animations.content_height(species, animation)
             if reference and content:
-                factor *= reference / content * SPRITE_SCALE
+                # size by visible pixels instead of the padded frame so
+                # every animation shows the pokemon at the same height
+                factor = area.height * SPRITE_FILL / content
+                bounds = sprite.get_bounding_rect()
+                if bounds.width and bounds.width * factor > area.width:
+                    factor = area.width / bounds.width
         size = (max(1, round(width * factor)), max(1, round(height * factor)))
         scaled = pygame.transform.scale(sprite, size)
         if animated is None:
