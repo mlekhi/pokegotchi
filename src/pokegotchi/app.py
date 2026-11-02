@@ -397,19 +397,19 @@ class PokegotchiApp:
 
     def _draw_back_icon(self, center: tuple[int, int]) -> None:
         x, y = center
-        pygame.draw.rect(self.surface, NAVY, pygame.Rect(x - 16, y - 3, 20, 6))
+        pygame.draw.rect(self.surface, NAVY, pygame.Rect(x - 8, y - 3, 20, 6))
         pygame.draw.polygon(self.surface, NAVY, [
-            (x - 20, y), (x - 8, y - 10), (x - 8, y + 10),
+            (x - 12, y), (x, y - 10), (x, y + 10),
         ])
 
     def _draw_exit_icon(self, center: tuple[int, int]) -> None:
         x, y = center
         pygame.draw.lines(self.surface, NAVY, False, [
-            (x + 6, y - 14), (x - 10, y - 14), (x - 10, y + 14), (x + 6, y + 14),
+            (x + 2, y - 14), (x - 14, y - 14), (x - 14, y + 14), (x + 2, y + 14),
         ], 4)
-        pygame.draw.rect(self.surface, NAVY, pygame.Rect(x - 2, y - 3, 16, 6))
+        pygame.draw.rect(self.surface, NAVY, pygame.Rect(x - 6, y - 3, 16, 6))
         pygame.draw.polygon(self.surface, NAVY, [
-            (x + 18, y), (x + 8, y - 8), (x + 8, y + 8),
+            (x + 14, y), (x + 4, y - 8), (x + 4, y + 8),
         ])
 
     def _draw_card_title(self, title: str, card: pygame.Rect) -> None:
