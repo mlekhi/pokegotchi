@@ -76,7 +76,7 @@ class PokegotchiApp:
         elif self.screen == "evolution":
             self._draw_evolution(now)
         elif self.screen == "menu":
-            self._draw_menu()
+            self._draw_menu(now)
         else:
             self._draw_home(now)
 
@@ -333,7 +333,7 @@ class PokegotchiApp:
         lowest, need = min(needs, key=lambda item: item[0])
         return need if lowest < 50 else "Doing well"
 
-    def _draw_menu(self) -> None:
+    def _draw_menu(self, now: int) -> None:
         assert self.state is not None
         self._draw_panel(pygame.Rect(20, 18, 760, 444))
         self._draw_button(BACK_BUTTON, SKY)
@@ -346,6 +346,8 @@ class PokegotchiApp:
         pygame.draw.rect(self.surface, SAND, pygame.Rect(card.x + 6, card.y + 6, card.width - 12, 4))
 
         self._text(species_for(self.state).capitalize(), 64, 136, large=True)
+        pygame.draw.ellipse(self.surface, SHADOW, pygame.Rect(585, 224, 110, 12))
+        self._draw_sprite(species_for(self.state), pygame.Rect(540, 96, 200, 230), elapsed_ms=now)
         if self.state.fainted:
             status_color = (216, 105, 105)
         elif self.state.asleep:
@@ -356,9 +358,8 @@ class PokegotchiApp:
             ))
         groups = (
             ("Level", str(self.state.level), 64, INK),
-            ("XP", str(self.state.xp), 260, INK),
-            ("Status", self._status(), 400, status_color),
-            ("Storage", "Local", 580, INK),
+            ("XP", str(self.state.xp), 220, INK),
+            ("Status", self._status(), 380, status_color),
         )
         for label, value, x, color in groups:
             self._text(label, x, 200, small=True, color=MUTED)
@@ -413,20 +414,30 @@ class PokegotchiApp:
         panel = pygame.Rect(100, 40, 600, 400)
         self._draw_panel(panel)
         self._draw_evolution_effect(panel, elapsed)
-        if revealed:
-            title = "Congratulations"
-            subtitle = f"{self.old_species.capitalize()} has evolved into {self.new_species.capitalize()}!"
-            title_y = 58
-        else:
-            title = f"What? {self.old_species.capitalize()} is evolving!"
-            subtitle = ""
-            title_y = 64
-        headline = self._large_font.render(title, False, INK)
-        self.surface.blit(headline, headline.get_rect(center=(400, title_y)))
-        if subtitle:
-            line = self._font.render(subtitle, False, SAND)
-            self.surface.blit(line, line.get_rect(center=(400, title_y + 38)))
         self._draw_sprite(shown_species, pygame.Rect(260, 130, 280, 230), elapsed_ms=now)
+        if revealed:
+            lines = (
+                "Congratulations!",
+                f"{self.old_species.capitalize()} has evolved into {self.new_species.capitalize()}!",
+            )
+        else:
+            lines = ("What?", f"{self.old_species.capitalize()} is evolving!")
+        self._draw_dialog(lines)
+
+    def _draw_dialog(self, lines: tuple[str, ...]) -> None:
+        box = pygame.Rect(32, 364, 736, 98)
+        pygame.draw.rect(self.surface, SHADOW, box.move(0, 4), border_radius=12)
+        pygame.draw.rect(self.surface, SKY, box, border_radius=12)
+        inner = box.inflate(-10, -10)
+        pygame.draw.rect(self.surface, CREAM, inner, border_radius=8)
+        pygame.draw.rect(self.surface, NAVY, inner, width=2, border_radius=8)
+        for index, line in enumerate(lines):
+            self._text(line, box.x + 28, box.y + 22 + index * 36, color=NAVY)
+        pygame.draw.polygon(self.surface, NAVY, [
+            (box.right - 34, box.bottom - 22),
+            (box.right - 20, box.bottom - 22),
+            (box.right - 27, box.bottom - 12),
+        ])
 
     def _draw_evolution_effect(self, panel: pygame.Rect, elapsed_ms: int) -> None:
         scale = 4
