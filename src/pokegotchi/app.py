@@ -19,8 +19,8 @@ EVOLUTION_REVEAL_MS = 1500
 STARTER_CARDS = tuple(pygame.Rect(x, 155, 220, 195) for x in (30, 290, 550))
 BUTTONS = tuple(pygame.Rect(20 + index * 194, 375, 178, 85) for index in range(4))
 MENU_BUTTON = pygame.Rect(704, 16, 60, 60)
-BACK_BUTTON = pygame.Rect(40, 26, 72, 72)
-MENU_EXIT_BUTTON = pygame.Rect(688, 26, 72, 72)
+BACK_BUTTON = pygame.Rect(308, 204, 72, 72)
+MENU_EXIT_BUTTON = pygame.Rect(420, 204, 72, 72)
 POKEMON_TAP_AREA = pygame.Rect(335, 160, 130, 145)
 HABITAT = pygame.Rect(20, 88, 760, 272)
 NAVY = (24, 45, 78)
@@ -400,33 +400,8 @@ class PokegotchiApp:
         return need if lowest < 50 else "Doing well"
 
     def _draw_menu(self, now: int) -> None:
-        assert self.state is not None
-        self._draw_panel(pygame.Rect(20, 18, 760, 444))
         self._draw_button(BACK_BUTTON, SKY)
         self._draw_back_icon(BACK_BUTTON.center)
-
-        self._text(species_for(self.state).capitalize(), 64, 132, large=True)
-        pygame.draw.ellipse(self.surface, SHADOW, pygame.Rect(540, 252, 100, 12))
-        self._draw_sprite(species_for(self.state), pygame.Rect(430, 60, 320, 350), elapsed_ms=now)
-        if self.state.fainted:
-            status_color = (216, 105, 105)
-        elif self.state.asleep:
-            status_color = SKY
-        else:
-            status_color = self._stat_color(min(
-                self.state.health, self.state.hunger, self.state.happiness, self.state.energy,
-            ))
-        groups = (
-            ("Status", self._status(), 64, status_color),
-        )
-        for label, value, x, color in groups:
-            self._text(label, x, 204, small=True, color=MUTED)
-            self._text(value, x, 226, color=color)
-
-        pygame.draw.line(self.surface, TEXTURE, (64, 286), (400, 286), 2)
-        self._draw_clock_icon(70, 310)
-        self._text(self.state.last_updated.strftime("%Y-%m-%d %H:%M UTC"), 88, 302, small=True, color=MUTED)
-
         self._draw_button(MENU_EXIT_BUTTON, SAND)
         self._draw_exit_icon(MENU_EXIT_BUTTON.center)
 

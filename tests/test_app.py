@@ -8,7 +8,7 @@ import subprocess
 import pygame
 import pytest
 
-from pokegotchi.app import BUTTONS, MENU_BUTTON, MENU_EXIT_BUTTON, PokegotchiApp
+from pokegotchi.app import BACK_BUTTON, BUTTONS, MENU_BUTTON, MENU_EXIT_BUTTON, PokegotchiApp
 from pokegotchi.save_store import load_game, save_game
 from pokegotchi.state import new_game
 
@@ -180,7 +180,7 @@ def test_menu_opens_separately_and_keeps_care_inactive(tmp_path, pygame_surface)
     assert pygame_surface.get_at((60, 140))[:3] != (113, 181, 205)
 
 
-def test_menu_has_details_save_status_and_exit(tmp_path, pygame_surface, monkeypatch):
+def test_menu_has_only_two_centered_buttons(tmp_path, pygame_surface, monkeypatch):
     app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
     app.handle_tap((140, 230))
     app.handle_tap((745, 58))
@@ -194,12 +194,10 @@ def test_menu_has_details_save_status_and_exit(tmp_path, pygame_surface, monkeyp
     monkeypatch.setattr(app, "_text", record_text)
     app.draw()
 
-    assert "Bulbasaur" in text
-    assert "Level" not in text
-    assert "XP" not in text
-    assert "Status" in text
-    assert "Storage" not in text
-    assert "Local" not in text
+    assert text == []
+    assert BACK_BUTTON.centery == MENU_EXIT_BUTTON.centery == 240
+    assert BACK_BUTTON.centerx + MENU_EXIT_BUTTON.centerx == 800
+    assert BACK_BUTTON.right < MENU_EXIT_BUTTON.left
     app.handle_tap(MENU_EXIT_BUTTON.center)
     assert app.exit_requested is True
 
@@ -210,7 +208,7 @@ def test_menu_back_returns_to_home_without_changing_state(tmp_path, pygame_surfa
     app.handle_tap((745, 58))
     assert app.screen == "menu"
 
-    app.handle_tap((70, 50))
+    app.handle_tap(BACK_BUTTON.center)
 
     assert app.screen == "home"
     assert app.state.hunger == 80
@@ -293,7 +291,7 @@ def test_care_action_settles_elapsed_time_before_clamping(tmp_path, pygame_surfa
         ("energy", "Needs rest"),
     ],
 )
-def test_awake_status_names_strongest_need(tmp_path, pygame_surface, monkeypatch, stat, status):
+def test_menu_omits_need_details(tmp_path, pygame_surface, monkeypatch, stat, status):
     path = tmp_path / "save.json"
     save_game(path, new_game("squirtle", datetime.now(timezone.utc)))
     app = PokegotchiApp(pygame_surface, path)
@@ -310,11 +308,11 @@ def test_awake_status_names_strongest_need(tmp_path, pygame_surface, monkeypatch
     app.handle_tap(MENU_BUTTON.center)
     app.draw()
 
-    assert "Status" in text
-    assert status in text
+    assert "Status" not in text
+    assert status not in text
 
 
-def test_awake_status_chooses_lowest_stat(tmp_path, pygame_surface, monkeypatch):
+def test_menu_omits_lowest_stat_status(tmp_path, pygame_surface, monkeypatch):
     path = tmp_path / "save.json"
     save_game(path, new_game("squirtle", datetime.now(timezone.utc)))
     app = PokegotchiApp(pygame_surface, path)
@@ -332,8 +330,8 @@ def test_awake_status_chooses_lowest_stat(tmp_path, pygame_surface, monkeypatch)
     app.handle_tap(MENU_BUTTON.center)
     app.draw()
 
-    assert "Status" in text
-    assert "Needs rest" in text
+    assert "Status" not in text
+    assert "Needs rest" not in text
 
 
 @pytest.mark.parametrize(
