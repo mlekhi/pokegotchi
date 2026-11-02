@@ -162,10 +162,7 @@ class PokegotchiApp:
         pygame.draw.rect(self.surface, CREAM, rect, width=2)
 
     def _draw_button(self, rect: pygame.Rect, color) -> None:
-        pygame.draw.rect(self.surface, SHADOW, rect)
-        pygame.draw.rect(self.surface, color, rect.inflate(-4, -4))
-        pygame.draw.rect(self.surface, CREAM, rect, width=2)
-        pygame.draw.rect(self.surface, SHADOW, pygame.Rect(rect.x + 4, rect.bottom - 6, rect.width - 8, 2))
+        self._draw_tile(rect, color)
 
     def _draw_selection(self, now: int) -> None:
         self._draw_panel(pygame.Rect(100, 40, 600, 400))
@@ -284,22 +281,17 @@ class PokegotchiApp:
             pygame.draw.rect(self.surface, (216, 105, 105), pygame.Rect(x + 1, y + 1, 3, 3))
         pygame.draw.rect(self.surface, CREAM, HABITAT, width=3)
 
+    def _draw_tile(self, tile: pygame.Rect, color: tuple[int, int, int]) -> None:
+        pygame.draw.rect(self.surface, SHADOW, tile)
+        pygame.draw.rect(self.surface, color, tile.inflate(-4, -4))
+        pygame.draw.rect(self.surface, CREAM, tile, width=2)
+        pygame.draw.rect(self.surface, SHADOW, pygame.Rect(tile.x + 4, tile.bottom - 6, tile.width - 8, 2))
+
     def _draw_care_button(self, button: pygame.Rect, action: str) -> None:
         tile = pygame.Rect(0, 0, 88, 88)
         tile.center = button.center
-        pygame.draw.rect(self.surface, SHADOW, tile.move(0, 4))
-        pygame.draw.rect(self.surface, TILE_EDGE, tile)
-        fill = tile.inflate(-10, -10)
         base = CARE_COLORS[action]
-        grad = pygame.Surface(fill.size, pygame.SRCALPHA)
-        for row in range(fill.height):
-            mix = 0.80 + 0.20 * row / max(1, fill.height - 1)
-            shade = tuple(round(255 + (channel - 255) * mix) for channel in base)
-            pygame.draw.line(grad, shade, (0, row), (fill.width - 1, row))
-        mask = pygame.Surface(fill.size, pygame.SRCALPHA)
-        pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect())
-        grad.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
-        self.surface.blit(grad, fill.topleft)
+        self._draw_tile(tile, base)
         self._draw_care_icon(action, tile.centerx, tile.centery + 1, base)
 
     def _draw_care_icon(self, action: str, x: int, y: int, tile_color: tuple[int, int, int]) -> None:

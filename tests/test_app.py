@@ -129,7 +129,8 @@ def test_home_care_buttons_show_icon_tiles(tmp_path, pygame_surface):
     for button, action in zip(BUTTONS, ("feed", "play", "heal", "sleep")):
         tile = pygame.Rect(0, 0, 88, 88)
         tile.center = button.center
-        assert pygame_surface.get_at((tile.centerx, tile.top + 2))[:3] == app_module.TILE_EDGE
+        assert pygame_surface.get_at((tile.centerx, tile.top))[:3] == app_module.CREAM
+        assert pygame_surface.get_at((tile.centerx, tile.bottom - 5))[:3] == app_module.SHADOW
         fill = pygame_surface.get_at((tile.x + 24, tile.bottom - 14))[:3]
         base = app_module.CARE_COLORS[action]
         assert all(abs(pixel - channel) <= 8 for pixel, channel in zip(fill, base))
