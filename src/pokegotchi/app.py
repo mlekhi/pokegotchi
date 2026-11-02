@@ -404,6 +404,7 @@ class PokegotchiApp:
         return need if lowest < 50 else "Doing well"
 
     def _draw_menu(self, now: int) -> None:
+        self._draw_panel(pygame.Rect(100, 40, 600, 400))
         self._draw_button(BACK_BUTTON, SKY)
         self._draw_back_icon(BACK_BUTTON.center)
         self._draw_button(MENU_EXIT_BUTTON, SAND)
