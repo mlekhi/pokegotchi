@@ -16,7 +16,7 @@ PMD_DIR = Path(__file__).resolve().parents[2] / "assets" / "pmd"
 STARTERS = ("bulbasaur", "charmander", "squirtle")
 EVOLUTION_MS = 3000
 EVOLUTION_REVEAL_MS = 1500
-STARTER_CARDS = tuple(pygame.Rect(x, 155, 220, 195) for x in (30, 290, 550))
+STARTER_CARDS = tuple(pygame.Rect(x, 155, 180, 195) for x in (110, 310, 510))
 BUTTONS = tuple(pygame.Rect(20 + index * 194, 375, 178, 85) for index in range(4))
 MENU_BUTTON = pygame.Rect(704, 16, 60, 60)
 BACK_BUTTON = pygame.Rect(308, 204, 72, 72)
@@ -172,18 +172,21 @@ class PokegotchiApp:
         self._draw_tile(rect, color)
 
     def _draw_selection(self, now: int) -> None:
-        self._draw_panel(pygame.Rect(100, 40, 600, 400))
+        self._draw_habitat(pygame.Rect(100, 40, 600, 400), bordered=True)
         for card, starter in zip(STARTER_CARDS, STARTERS):
             self._draw_sprite(starter, card.inflate(30, 60), elapsed_ms=now)
         self._draw_dialog(("Choose your starter!", "Tap one to begin."))
 
     def _draw_home(self, now: int) -> None:
         assert self.state is not None
-        self._draw_panel(pygame.Rect(20, 14, 760, 64))
+        self._draw_habitat(self.surface.get_rect())
         name = species_for(self.state).capitalize()
-        self._text(name, 40, 34)
-        self._text(f"lv. {self.state.level}", 64 + self._font.size(name)[0], 34)
-        self._draw_habitat()
+        label = f"{name}   Lv. {self.state.level}"
+        chip = pygame.Rect(36, 30, self._font.size(label)[0] + 26, 36)
+        pygame.draw.rect(self.surface, SAND, chip)
+        pygame.draw.rect(self.surface, CREAM, chip, width=2)
+        self._text(name, chip.x + 13, chip.y + 9, color=NAVY)
+        self._text(f"Lv. {self.state.level}", chip.x + 13 + self._font.size(name + "   ")[0], chip.y + 9, color=NAVY)
         self._draw_button(MENU_BUTTON, SAND)
         self._draw_menu_icon(MENU_BUTTON.center)
         reaction_age = now - self.reaction_started_ms
@@ -311,12 +314,11 @@ class PokegotchiApp:
         pygame.draw.rect(self.surface, CREAM, chip, width=2)
         self._text(name, chip.centerx - text_width // 2, chip.centery - text_height // 2, color=NAVY)
 
-    def _draw_habitat(self) -> None:
-        pygame.draw.rect(self.surface, SHADOW, HABITAT.move(2, 2))
-        pygame.draw.rect(self.surface, SKY, HABITAT)
-        pygame.draw.rect(self.surface, GRASS, pygame.Rect(HABITAT.x, 210, HABITAT.width, 150))
-        pygame.draw.ellipse(self.surface, SAND, pygame.Rect(245, 270, 310, 75))
-        pygame.draw.ellipse(self.surface, (186, 147, 87), pygame.Rect(279, 328, 235, 13))
+    def _draw_habitat(self, area: pygame.Rect, *, bordered: bool = False) -> None:
+        old_clip = self.surface.get_clip()
+        self.surface.set_clip(area)
+        pygame.draw.rect(self.surface, SKY, area)
+        pygame.draw.rect(self.surface, GRASS, pygame.Rect(area.x, 210, area.width, area.bottom - 210))
         for x, y in ((230, 156), (585, 169), (640, 145)):
             pygame.draw.rect(self.surface, CREAM, pygame.Rect(x, y, 56, 8))
             pygame.draw.rect(self.surface, CREAM, pygame.Rect(x + 11, y - 7, 34, 8))
@@ -326,7 +328,9 @@ class PokegotchiApp:
         for x, y in ((118, 324), (673, 263)):
             pygame.draw.rect(self.surface, CREAM, pygame.Rect(x, y, 5, 5))
             pygame.draw.rect(self.surface, (216, 105, 105), pygame.Rect(x + 1, y + 1, 3, 3))
-        pygame.draw.rect(self.surface, CREAM, HABITAT, width=3)
+        if bordered:
+            pygame.draw.rect(self.surface, CREAM, area, width=2)
+        self.surface.set_clip(old_clip)
 
     def _draw_tile(self, tile: pygame.Rect, color: tuple[int, int, int]) -> None:
         pygame.draw.rect(self.surface, SHADOW, tile)

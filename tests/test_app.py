@@ -71,14 +71,14 @@ def test_loaded_game_is_shown_on_home_screen(tmp_path, pygame_surface):
     app.draw()
 
 
-def test_home_uses_the_ds_panel_and_border_colours(tmp_path, pygame_surface):
+def test_home_scenery_reaches_screen_edges(tmp_path, pygame_surface):
     app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
     app.handle_tap((140, 230))
 
     app.draw()
 
-    assert pygame_surface.get_at((12, 12))[:3] == (24, 45, 78)
-    assert pygame_surface.get_at((20, 14))[:3] == (245, 230, 184)
+    assert pygame_surface.get_at((0, 0))[:3] == (113, 181, 205)
+    assert pygame_surface.get_at((799, 479))[:3] == (105, 160, 103)
 
 
 def test_action_buttons_form_an_even_row():
@@ -103,7 +103,7 @@ def test_home_draws_minimal_name_and_level_header(tmp_path, pygame_surface, monk
 
     assert {"Health", "Hunger", "Happiness", "Energy", "Sleep"}.isdisjoint(text)
     assert "80" not in text
-    assert "lv. 1" in text
+    assert "Lv. 1" in text
     assert "Bulbasaur" in text
     assert pygame_surface.get_at((40, 130))[:3] == (113, 181, 205)
 
@@ -116,7 +116,7 @@ def test_home_draws_shared_outdoor_habitat(tmp_path, pygame_surface):
 
     assert pygame_surface.get_at((30, 180))[:3] == (113, 181, 205)
     assert pygame_surface.get_at((60, 300))[:3] == (105, 160, 103)
-    assert pygame_surface.get_at((510, 320))[:3] == (214, 181, 109)
+    assert pygame_surface.get_at((510, 320))[:3] == (105, 160, 103)
 
 
 def test_home_care_buttons_show_icon_tiles(tmp_path, pygame_surface):
@@ -396,7 +396,7 @@ def test_missing_sprite_draws_named_placeholder(tmp_path, pygame_surface, monkey
 
     app.draw()
 
-    assert pygame_surface.get_at((80, 165))[:3] != pygame_surface.get_at((20, 185))[:3]
+    assert pygame_surface.get_at((235, 100))[:3] == app_module.CREAM
 
 
 def test_available_sprite_is_loaded_without_blurring(tmp_path, pygame_surface, monkeypatch):
@@ -739,3 +739,20 @@ def test_needs_close_on_outside_tap_care_and_menu(tmp_path, pygame_surface):
         app.handle_tap(target)
         assert not app.show_needs
     assert app.screen == "menu"
+
+
+def test_starter_selection_has_scenery(tmp_path, pygame_surface):
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    app.draw()
+    assert pygame_surface.get_at((400, 110))[:3] == (113, 181, 205)
+    assert pygame_surface.get_at((420, 320))[:3] == (105, 160, 103)
+    assert pygame_surface.get_at((100, 40))[:3] == (245, 230, 184)
+    assert pygame_surface.get_at((0, 0))[:3] == (24, 45, 78)
+
+
+def test_home_has_no_ground_oval(tmp_path, pygame_surface):
+    app = PokegotchiApp(pygame_surface, tmp_path / "save.json")
+    app.handle_tap((140, 230))
+    app.draw()
+    assert pygame_surface.get_at((510, 320))[:3] == (105, 160, 103)
+    assert pygame_surface.get_at((480, 334))[:3] == (105, 160, 103)
