@@ -360,8 +360,6 @@ class PokegotchiApp:
         self._draw_panel(pygame.Rect(20, 18, 760, 444))
         self._draw_button(BACK_BUTTON, SKY)
         self._draw_back_icon(BACK_BUTTON.center)
-        title = self._large_font.render("Menu", False, INK)
-        self.surface.blit(title, title.get_rect(center=(400, 56)))
 
         self._text(species_for(self.state).capitalize(), 64, 132, large=True)
         pygame.draw.ellipse(self.surface, SHADOW, pygame.Rect(540, 252, 100, 12))
