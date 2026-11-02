@@ -51,6 +51,11 @@ def apply_action(state: GameState, action: str) -> bool:
     if state.asleep and action in {"feed", "play"}:
         return False
 
+    if action == "feed" and state.hunger == 100:
+        return False
+    if action == "play" and state.happiness == 100:
+        return False
+
     if action == "sleep":
         state.asleep = not state.asleep
         return True

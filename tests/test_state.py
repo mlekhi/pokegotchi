@@ -187,3 +187,28 @@ def test_time_before_last_update_does_not_change_state():
     state = new_game("bulbasaur", NOW)
     game.advance_time(state, NOW - timedelta(hours=1))
     assert (state.hunger, state.last_updated) == (80, NOW)
+
+
+@pytest.mark.parametrize(("action", "stat"), [("feed", "hunger"), ("play", "happiness")])
+def test_full_need_rejects_repeated_actions_without_xp_or_side_effects(action, stat):
+    state = game.new_game("bulbasaur", NOW)
+    setattr(state, stat, 100)
+    before = vars(state).copy()
+
+    for _ in range(100):
+        assert game.apply_action(state, action) is False
+
+    assert vars(state) == before
+
+
+@pytest.mark.parametrize(("action", "stat", "xp"), [("feed", "hunger", 5), ("play", "happiness", 10)])
+def test_care_rewards_last_needed_action_but_not_extra_taps(action, stat, xp):
+    state = game.new_game("bulbasaur", NOW)
+    setattr(state, stat, 99)
+
+    assert game.apply_action(state, action) is True
+    assert getattr(state, stat) == 100
+    assert state.xp == xp
+    before = vars(state).copy()
+    assert game.apply_action(state, action) is False
+    assert vars(state) == before

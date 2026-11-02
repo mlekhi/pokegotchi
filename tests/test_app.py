@@ -756,3 +756,22 @@ def test_home_has_no_ground_oval(tmp_path, pygame_surface):
     app.draw()
     assert pygame_surface.get_at((510, 320))[:3] == (105, 160, 103)
     assert pygame_surface.get_at((480, 334))[:3] == (105, 160, 103)
+
+
+@pytest.mark.parametrize(("index", "stat"), [(0, "hunger"), (1, "happiness")])
+def test_spamming_full_care_buttons_does_not_level_or_save_xp(tmp_path, pygame_surface, game_clock, index, stat):
+    path = tmp_path / "save.json"
+    app = PokegotchiApp(pygame_surface, path)
+    app.handle_tap((140, 230))
+    setattr(app.state, stat, 100)
+    app.state.level, app.state.xp = 4, 99
+    save_game(path, app.state)
+    before = vars(app.state).copy()
+
+    for _ in range(100):
+        app.handle_tap(BUTTONS[index].center)
+
+    assert vars(app.state) == before
+    assert vars(load_game(path)) == before
+    assert app.screen == "home"
+    assert app.reaction_text == ""
